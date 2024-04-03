@@ -6,7 +6,14 @@
 #define PROD_ID	  		0x0011
 #define ENDPT_ADDR_IN	0x81
 
-#define EMPTY_INTERR(packet) ((packet[3] == 127) & (packet[4] == 127) & (packet[5] == 15) & (packet[6] == 0) & (packet[7] == 0))
+#define EMPTY_INTERR(packet) 	  \
+			((packet[3] == 127) & \
+ 		    (packet[4] == 127) &  \
+		    (packet[5] == 15)  &  \
+		    (packet[6] == 0)   &  \
+		 	(packet[7] == 0))
+
+enum detect_bits {SELECT_BIT=0x10, START_BIT=0x20, A_BIT=0x20, B_BIT=0x40, DOWN_BIT=0x80, RIGHT_BIT=0x80};
 
 /* End of Headers */
 
@@ -52,33 +59,52 @@ int main()
 	struct libusb_device_handle *controller;
 	int transferred;
 	unsigned char packet[8];
-	int r;
+	unsigned char pressed;			// 	UP_DOWN_LEFT_RIGHT_SELECT_START_B_A
 
 	if ((controller = opencontroller()) == NULL) {
 	    fprintf(stderr, "Did not find a controller\n");
 	    exit(1);
 	  }
 
+	pressed = 0;
 	while (1) {
-		libusb_interrupt_transfer(controller, 0x81,
+		libusb_interrupt_transfer(controller, ENDPT_ADDR_IN,
 					    (unsigned char *) packet, 8,
 					     &transferred, 500);
 		if (transferred > 0 && !EMPTY_INTERR(packet)) {			
 			/* --- Start/Select --- */
-			if (packet[6]  & 0x10)
-				printf("Select!\n");
-			if (packet[6]  & 0x20)
+			if (packet[6] & SELECT_BIT)	// select
+				pressed |= 0x08;
+			else
+				pressed &= 0xF7;
+			if (packet[6] & START_BIT)	// start
 				printf("Start!\n");
 
-			printf("%d ", transferred);
-			for (int i = 0; i < sizeof(packet); i++)
-				printf("%d ", packet[i]);
-			printf("\n");
+			/* --- A/B --- */
+			if (packet[5] & A_BIT)	// a
+				printf("A!\n");
+			if (packet[5] & B_BIT)	// b
+				printf("B!\n");
 
+			/* --- D_Pad --- */
+			if (packet[4] & DOWN_BIT)	// down
+				printf("Down!\n");
+			if (!(packet[4] & 0xFF))	// up (entire byte gets zero'd)
+				printf("Up!\n");
+			if (!(packet[3] & 0xFF))	// left (entire byte gets zero'd)
+				printf("Left!\n");
+			if (packet[3] & RIGHT_BIT)	// right
+				printf("Right!\n");
+
+			// printf("0x%X\n", !(0 & 0xFF));
 			/* Effectively debounces by introducing a delay after input was recieved */
 			usleep(200 * 1000);
+
 		}
 	}
+
+	// DONT FORGET TO FREE MEMORY
+	libusb_close(controller);
 
 	return 0;
 }
