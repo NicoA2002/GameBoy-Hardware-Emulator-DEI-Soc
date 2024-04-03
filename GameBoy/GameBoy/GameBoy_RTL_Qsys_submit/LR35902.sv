@@ -37,11 +37,6 @@ module LR35902
     input logic P13,
     output logic P14,
     output logic P15,
-    /* Serial Link */
-    output logic S_OUT,
-    input logic S_IN,
-    input logic SCK_in, // serial link clk in
-    output logic SCK_out, // serial link clk out
     /* Work RAM/Cartridge */
     output logic CLK_GC, // Game Cartridge Clock
     output logic WR, // high active
@@ -49,10 +44,7 @@ module LR35902
     output logic CS, // high active
     output logic [15:0] A,
     input logic [7:0] D_in, // work ram/cartridge data bus
-    output logic [7:0] D_out, // work ram/cartridge data bus
-    /* Audio */
-    output logic [15:0] LOUT,
-    output logic [15:0] ROUT    
+    output logic [7:0] D_out // work ram/cartridge data bus
 );
 
 /* GB-Z80 CPU */
@@ -214,17 +206,12 @@ begin
     OAM_ADDR = GB_Z80_ADDR[7:0];
     MMIO_PPU_WR = 0; MMIO_PPU_RD = 0; MMIO_PPU_DATA_out = 8'hFF;
     PPU_DATA_in = 8'hFF;
-    MMIO_TIMER_WR = 0; MMIO_TIMER_RD = 0; MMIO_TIMER_DATA_out = 8'hFF;
-    MMIO_SOUND_WR = 0; MMIO_SOUND_RD = 0; MMIO_SOUND_DATA_out = 8'hFF;
-    MMIO_SERIAL_WR = 0; MMIO_SERIAL_RD = 0; MMIO_SERIAL_DATA_out = 8'hFF;
     
     /* Interrupt Register */
     FF00_NEXT = FF00;
     FF0F_NEXT = FF0F;
     if (IRQ_V_BLANK) FF0F_NEXT[0] = 1;
     if (IRQ_LCDC) FF0F_NEXT[1] = 1;
-    if (IRQ_TIMER) FF0F_NEXT[2] = 1;
-    if (IRQ_SERIAL) FF0F_NEXT[3] = 1;
     FFFF_NEXT = FFFF;
     
     /* Memory Access Handlers */
@@ -372,20 +359,8 @@ begin
             if (GB_Z80_WR) FF00_NEXT = GB_Z80_D_out & 8'h30;
         end 
         else if (GB_Z80_ADDR == 16'hFF01 || GB_Z80_ADDR == 16'hFF02) // Serial
-        begin
-            MMIO_SERIAL_WR = GB_Z80_WR;
-            MMIO_SERIAL_RD = GB_Z80_RD;
-            GB_Z80_D_in = MMIO_SERIAL_DATA_in;
-            MMIO_SERIAL_DATA_out = GB_Z80_D_out;
-        end
         else if (GB_Z80_ADDR == 16'hFF03) GB_Z80_D_in = 8'hFF; // Undocumented
         else if (GB_Z80_ADDR >= 16'hFF04 && GB_Z80_ADDR <= 16'hFF07) // Timer
-        begin
-            MMIO_TIMER_WR = GB_Z80_WR;
-            MMIO_TIMER_RD = GB_Z80_RD;
-            GB_Z80_D_in = MMIO_TIMER_DATA_in;
-            MMIO_TIMER_DATA_out = GB_Z80_D_out;
-        end
         else if (GB_Z80_ADDR >= 16'hFF08 && GB_Z80_ADDR <= 16'hFF0E) GB_Z80_D_in = 8'hFF; // Undocumented
         else if (GB_Z80_ADDR == 16'hFF0F) //Interrupt Flag
         begin
@@ -393,12 +368,6 @@ begin
             if (GB_Z80_WR) FF0F_NEXT = GB_Z80_D_out;
         end
         else if (GB_Z80_ADDR >= 16'hFF10 && GB_Z80_ADDR <= 16'hFF3F) // Sound
-        begin
-            MMIO_SOUND_WR = GB_Z80_WR;
-            MMIO_SOUND_RD = GB_Z80_RD;
-            GB_Z80_D_in = MMIO_SOUND_DATA_in;
-            MMIO_SOUND_DATA_out = GB_Z80_D_out;    
-        end
         else if (GB_Z80_ADDR >= 16'hFF40 && GB_Z80_ADDR <= 16'hFF4B) //PPU
         begin
             MMIO_PPU_WR = GB_Z80_WR;

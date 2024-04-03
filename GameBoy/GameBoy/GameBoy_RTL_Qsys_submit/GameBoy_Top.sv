@@ -23,10 +23,7 @@ module GameBoy_Top
 	input logic [7:0] CART_DATA_in,
 	output logic [7:0] CART_DATA_out,
 	output logic CART_RD,
-	output logic CART_WR,
-	/* GameBoy Audio Conduit */
-	output logic [15:0] LOUT,
-	output logic [15:0] ROUT
+	output logic CART_WR
 	
 );
 
@@ -45,11 +42,6 @@ logic CPL; // DATALCH
 logic FR; // ALTSIGL
 logic S; // VERTSYN
 
-/* Serial Link */
-logic S_OUT;
-logic S_IN;
-logic SCK_in; // serial link clk
-logic SCK_out; // serial link clk
 /* Work RAM/Cartridge */
 logic CLK_GC; // Game Cartridge Clock
 logic WR; // high active
@@ -62,8 +54,8 @@ logic [7:0] D_out; // data bus
 /* The DMG-CPU */
 LR35902 DMG_CPU(.clk(clk), .rst(rst), .MD_in(MD_in), .MD_out(MD_out), .MA(MA), .MWR(MWR), .MCS(MCS), .MOE(MOE), .LD(LD), .PX_VALID(PX_VALID),
                 .CPG(CPG), .CP(CP), .ST(ST), .CPL(CPL), .FR(FR), .S(S), .P10(P10), .P11(P11), .P12(P12), .P13(P13), .P14(P14), .P15(P15),
-                .S_OUT(S_OUT), .S_IN(S_IN), .SCK_in(SCK_in), .SCK_out(SCK_out), .CLK_GC(CLK_GC), .WR(WR), .RD(RD), .CS(CS), .A(A), .D_in(D_in),
-                .D_out(D_out), .LOUT(LOUT), .ROUT(ROUT));
+                .CLK_GC(CLK_GC), .WR(WR), .RD(RD), .CS(CS), .A(A), .D_in(D_in),
+                .D_out(D_out));
 
 /* VRAM Connection */
 LH5264 VRAM(.D_out(MD_in), .D_in(MD_out), .CE1(MCS), .CE2(MWR), .A(MA), .OE(MOE), .clk(~clk));
