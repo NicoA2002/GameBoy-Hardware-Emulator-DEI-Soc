@@ -1,99 +1,101 @@
-/* Headers */
-
-#include <libusb-1.0/libusb.h>
-
-#define VENDOR_ID 0x0079
-#define PROD_ID	  0x0011
-
-/* End of Headers */
+#include "controller.h"
 
 #include <stdio.h>
-#include <stdlib.h> 
+#include <stdlib.h>
+#include <unistd.h> 
  
-struct libusb_device_handle *opencontroller(uint8_t *endpoint_address)
+struct libusb_device_handle *opencontroller(void)
 {
-	struct libusb_device_handle *controller = NULL;
-	struct libusb_device_descriptor desc;
-	struct libusb_config_descriptor *config;
+	libusb_device_handle *controller;
+    int error;
 
-	libusb_device **devs;
-	
-	ssize_t num_devs, d;
-	uint8_t i, k, r;
+    // Initialize libusb
+	if ((error = libusb_init(NULL)) < 0) {
+        fprintf(stderr, "Error initializing libusb: %s\n", libusb_error_name(error));
+        return NULL;
+    }
 
-	if (libusb_init(NULL) < 0) {
-		fprintf(stderr, "Error: libusb_init failed\n");
-		exit(1);
-	}
+    // Open device with the given vendor ID and product ID
+	if ((controller = libusb_open_device_with_vid_pid(NULL, VENDOR_ID, PROD_ID)) == NULL) {
+        fprintf(stderr, "Device not found.\n");
+        return NULL;
+    }
 
-	if ((num_devs = libusb_get_device_list(NULL, &devs)) < 0) {
-		fprintf(stderr, "Error: libusb_get_device_list failed\n");
-		exit(1);
-	}
+    // There's only one interface so we know we can use 0
+    if (libusb_kernel_driver_active(controller, 0))
+		libusb_detach_kernel_driver(controller, 0);							
+	libusb_set_auto_detach_kernel_driver(controller, 0);
+    if ((error = libusb_claim_interface(controller, 0)) != LIBUSB_SUCCESS) {
+        fprintf(stderr, "Error claiming interface: %s\n", libusb_error_name(error));
+        libusb_close(controller);
+        return NULL;
+    }
 
-	for (d = 0 ; d < num_devs ; d++) {
-		libusb_device *dev = devs[d];
-
-		if (libusb_get_device_descriptor(dev, &desc) < 0) {
-		  fprintf(stderr, "Error: libusb_get_device_descriptor failed\n");
-		  exit(1);
-		}
-		if (desc.idVendor == VENDOR_ID && desc.idProduct == PROD_ID) {
-			libusb_get_config_descriptor(dev, 0, &config);
-			for (int j = 0; j < config->bNumInterfaces; j++) {
-                for (int k = 0; k < config->interface[j].num_altsetting; k++) {
-                	const struct libusb_interface_descriptor *inter = config->interface[j].altsetting + k;
-                    if (inter->bInterfaceClass == LIBUSB_CLASS_HID) {
-						if ((k = libusb_open(dev, &controller)) != 0) {
-							fprintf(stderr, "Error: libusb_open failed: %d\n", k);
-							exit(1);
-						}
-
-						if (libusb_kernel_driver_active(controller,j))
-							libusb_detach_kernel_driver(controller, j);							
-						libusb_set_auto_detach_kernel_driver(controller, j);
-						if ((r = libusb_claim_interface(controller, j)) != 0) {
-							fprintf(stderr, "Error: libusb_claim_interface failed: %d\n", r);
-							exit(1);
-						}
-
-						endpoint_address = inter->endpoint[0].bEndpointAddress;
-						libusb_free_config_descriptor(config);
-						return controller;
-
-                    }
-                }
-            }
-
-		}
-	}
-
-  return NULL;
+    return controller;
 }
 
-int main()
+void read_inputs(void)
 {
 	struct libusb_device_handle *controller;
 	int transferred;
-	unsigned char packet;
-	uint8_t endpoint_address;
-	int r;
+	unsigned char packet[8];
+	unsigned char pressed, joyp;			// 	DOWN_UP_LEFT_RIGHT_START_SELECT_B_A
 
-	if ((controller = opencontroller(&endpoint_address)) == NULL) {
+	if ((controller = opencontroller()) == NULL) {
 	    fprintf(stderr, "Did not find a controller\n");
 	    exit(1);
 	  }
 
+	pressed = 0;
+	printf("Ready to read input\n");
 	while (1) {
-		if ((r = libusb_interrupt_transfer(controller, endpoint_address,
-				    (unsigned char *) &packet, sizeof(packet),
-				     &transferred, 5000)) != 0) {
-			printf("Error code: %d\n", r);
-			exit(1);
-		}
+		libusb_interrupt_transfer(controller, ENDPT_ADDR_IN,
+					    (unsigned char *) packet, 8,
+					     &transferred, 500);
+		if (transferred > 0 && !EMPTY_INTERR(packet)) {			
+			/* --- Start/Select --- */
+			PROCESS(packet[6], SELECT, pressed);
+			PROCESS(packet[6], START, pressed);
 
-		printf("%d 0x%x\n", transferred, packet);
+			/* --- A/B --- */
+			PROCESS(packet[5], A, pressed);
+			PROCESS(packet[5], B, pressed);
+
+			/* --- D_Pad --- */
+			PROCESS(packet[4], DOWN, pressed);
+			PROCESS(packet[3], RIGHT, pressed);
+			EMPTY_PROCESS(packet[4], UP, pressed);
+			EMPTY_PROCESS(packet[3], LEFT, pressed);
+
+			/* Effectively debounces by introducing a delay after input was recieved */
+			usleep(100 * 1000);
+		} else {
+			pressed = 0x00;
+		}
+		
+		/* By definition of the register only buttons or only d-pad can be read 
+		 * at a single time so I chose to have buttons take precedence. (In theory
+		 * if you're walking and press 'a' you'd stop, do the action then continue) 
+		 */
+
+		joyp = 0x3F;						// register is active low
+		if (pressed & 0x0F) {
+			joyp ^= (0x1 << 5);				// button select
+			joyp &= ~(pressed & 0x0F);
+		} else if (pressed & 0xF0) {
+			joyp ^= (0x1 << 4);				// d-pad select
+			joyp &= (~(pressed & 0xF0) >> 4);
+		} 
+		printf("0x%X\n", joyp);
+
+		// here is where the send would take place
 	}
 
+	libusb_close(controller);
+}
+
+int main()
+{
+	read_inputs();
 	return 0;
 }
