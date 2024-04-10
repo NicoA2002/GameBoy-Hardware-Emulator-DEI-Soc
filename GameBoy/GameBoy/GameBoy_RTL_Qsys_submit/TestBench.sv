@@ -89,7 +89,7 @@ assign DE1_VGA_CLK = clk;
 
 
 logic [15:0] CART_ADDR;
-logic [25:0] MBC1_ADDR;;
+logic [25:0] MBC1_ADDR;
 logic [7:0] CART_DATA;
 logic [7:0] MBC_CART_DATA_in, MBC1_DATA_out;
 logic CART_RD;

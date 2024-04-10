@@ -4,6 +4,7 @@
 
 `define NO_BOOT 0
 
+
 module PPU3
 (
     input logic clk,
@@ -29,8 +30,28 @@ module PPU3
 );
 
 logic [7:0] LCDC, STAT, SCX, SCY, LYC, DMA, BGP, OBP0, OBP1, WX, WY; // Register alias
+logic [31:0] OAM_Buf [9:0];
+
+enum {SCAN, V_BLANK, H_BLANK, DRAW} state_modes;
+
+always_ff @(posedge clk) begin
+    if (rst) begin
+
+    end else begin
+        case (PPU_MODE)
+            SCAN: begin //go through memory values of OAM, if finds puts in OAM buffer,
+                
+            end
+            V_BLANK:
+
+        endcase
+
+    end
 
 
+
+
+end 
         
 endmodule
     
