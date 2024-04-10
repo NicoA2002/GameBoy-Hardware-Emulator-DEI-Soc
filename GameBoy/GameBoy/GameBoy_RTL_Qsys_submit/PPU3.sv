@@ -31,9 +31,14 @@ module PPU3
     output logic PX_valid
 );
 
-logic [7:0] LY; 
+logic [7:0] LY, LX; 
 
-logic [31:0] OAM_buf [9:0];
+// X_POS
+
+// need a definition for background_fifo
+// need a definition for sprite_fifo
+
+// sprite_buf def
 
 enum {SCAN, V_BLANK, H_BLANK, DRAW} state_modes;
 
@@ -46,12 +51,14 @@ always_ff @(posedge clk) begin
             SCAN: begin 
 	    	// go thru the OAM mem
 		// 	if sprite_y in range and x > 0
-		// 		add sprite data to OAM_buf
+		// 		add sprite data to sprite_buf
 		// switch to draw_mode when we have finished mem 
 		// 	-- (40 * 4 bytes have been read)
             end
 	    DRAW: begin
-
+		// pixel fetcher
+		// 	for bg:
+		// 		grab the tile number
 	    end
 	    H_BLANK: begin
 		// idk man do some padding to 456 cycles
