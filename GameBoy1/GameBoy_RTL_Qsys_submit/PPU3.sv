@@ -9,7 +9,6 @@ module PPU3
     input logic clk,
     input logic rst,
     
-    /* OAM */
     input logic [15:0] ADDR,
     input logic WR,
     input logic RD,
@@ -22,7 +21,6 @@ module PPU3
     
     output logic [1:0] PPU_MODE,
     
-    /* VRAM */
     output logic PPU_RD,
     output logic [15:0] PPU_ADDR,
     input logic [7:0] PPU_DATA_in,
@@ -31,7 +29,8 @@ module PPU3
     output logic PX_valid
 );
 
-logic [7:0] LY, X_POS; 
+logic [7:0] LY, x_pos; 
+logic [15:0] cur_addr;
 
 // x-pos in range [0, 159]
 
@@ -43,12 +42,13 @@ logic [7:0] LY, X_POS;
 // LCDC		-- lcd control flags
 // STAT		-- ppu status flags
 
-enum {SCAN, V_BLANK, H_BLANK, DRAW} state_modes;
+typedef enum {SCAN, V_BLANK, H_BLANK, DRAW} PPU_STATES_t;
 
 always_ff @(posedge clk) begin
     if (rst) begin
-	X_POS <= 0;
+	x_pos <= 0;
 	LY <= 0;
+	cur_addr // thing addr we need to start on OAM
 	// happen on every frame
 	// reset LY to 0
 	// x-pos to 0
