@@ -1385,7 +1385,7 @@
    version="18.1"
    start="Main_PLL.outclk2"
    end="GameBoy_VGA.clock_vga" />
- <connection kind="clock" version="18.1" start="Main_PLL.outclk4" end="Audio.clk" />
+ <!--<connection kind="clock" version="18.1" start="Main_PLL.outclk4" end="Audio.clk" />
  <connection
    kind="clock"
    version="18.1"
@@ -1407,6 +1407,7 @@
   <parameter name="startPortLSB" value="0" />
   <parameter name="width" value="0" />
  </connection>
+ -->
  <connection
    kind="conduit"
    version="18.1"
