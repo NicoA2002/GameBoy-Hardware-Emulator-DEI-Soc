@@ -33,12 +33,12 @@ module PPU3
 
 logic [7:0] LY, LX; 
 
-// X_POS
+// x-pos in range [1, 160]
 
 // need a definition for background_fifo
 // need a definition for sprite_fifo
 
-// sprite_buf def
+// sprite_buf def 	- {stores at least x-pos, tile no}
 
 enum {SCAN, V_BLANK, H_BLANK, DRAW} state_modes;
 
@@ -56,12 +56,32 @@ always_ff @(posedge clk) begin
 		// 	-- (40 * 4 bytes have been read)
             end
 	    DRAW: begin
-		// pixel fetcher
-		// 	for bg:
-		// 		grab the tile number
+		// sprite-staging mode:
+		// 	1 - if sprite-x is in range grab it
+		// 	2 - pause bg-staging
+		// 	3 - fetches sprite tile from buffer 
+		// 	4 - same as 2 & 3 in bg-stage mode
+		//
+		// bg-staging mode:
+		// 	1 - grabs the current tile (use x-pos as an offset
+		// 		from the base)
+		//	2 - grabs the corresponding row of byte from the tile
+		//		saved
+		//	3 - grabs the next row so that our color can be
+		//		encoded
+		//	4 - decode and push the row into the FIFO
+		//
+		// drawing mode:
+		// 	1 - apply the bg fifo mask for SCX
+		// 	2 - grab pixel and do mixing
+		// 	3 - push to LCD
+		// 	4 - increment x-pos	
+		// 	5 - check if we've hit the window
+		//
+		// if x-pos == 160 then move to h-blank
 	    end
 	    H_BLANK: begin
-		// idk man do some padding to 456 cycles
+		// stall to 456 cycles
 	    end
 	    V_BLANK: begin
 		// idk man do some padding to 456 lines, 10 extra lines that last 456 cycles
