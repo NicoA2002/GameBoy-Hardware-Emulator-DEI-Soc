@@ -2,8 +2,8 @@
 
 //Authors: Nicolas Alarcon, Claire Cizdziel, Donovan Sproule
 
-`define NO_BOOT 0
-
+`define OAM_BASE_ADDR 16'hFE00
+`define OAM_BASE_ADDR 16'hFE9F
 module PPU3
 (
     input logic clk,
@@ -29,10 +29,14 @@ module PPU3
     output logic PX_valid
 );
 
-logic [7:0] LY, x_pos; 
+logic [7:0] LY, x_pos;  // x-pos in range [0, 159]
 logic [15:0] cur_addr;
 
-// x-pos in range [0, 159]
+logic [1:0] ppu_mode;
+
+logic [3:0] sprites_loaded;
+logic [15:0] sprite_buf [9:0];
+
 
 // need a definition for background_fifo
 // need a definition for sprite_fifo
@@ -43,20 +47,21 @@ logic [15:0] cur_addr;
 // STAT		-- ppu status flags
 
 typedef enum {SCAN, V_BLANK, H_BLANK, DRAW} PPU_STATES_t;
+typedef enum {OAM_LOAD, OAM_CHECK} OAM_STATES_t;
 
+/* -- State Switching machine -- */
 always_ff @(posedge clk) begin
     if (rst) begin
 	x_pos <= 0;
 	LY <= 0;
-	cur_addr // thing addr we need to start on OAM
-	// happen on every frame
-	// reset LY to 0
-	// x-pos to 0
-	// clear all buffers
+	cur_addr <= OAM_BASE_ADDR;
+	ppu_mode <= SCAN;
     end else begin
 	/* -- Following block happens on a per scanline basis (456 Cycles per line) -- */
-        case (PPU_MODE)
+        case (ppu_mode)
             SCAN: begin 
+	    	if (cur_addr > OAM_END_ADDR) 
+			ppu_mode <= DRAW;
 	    	// go thru the OAM mem
 		// 	if sprite_y in range and x > 0
 		// 		add sprite data to sprite_buf
@@ -96,6 +101,17 @@ always_ff @(posedge clk) begin
 	    end
         endcase
     end
+
+/* -- OAM Scan State Machine -- */
+always_ff @(posedge clk) begin
+	// loading stage
+	if (ppu_mode == SCAN) begin
+		// 8000 addr method
+		// load in y-value byte
+		// if we like y-value
+		// 	populate with tile no
+	end
+end
 
 end 
         
