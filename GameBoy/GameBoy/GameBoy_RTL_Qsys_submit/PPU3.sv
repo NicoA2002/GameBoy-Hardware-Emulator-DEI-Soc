@@ -40,6 +40,9 @@ logic [7:0] LY, LX;
 
 // sprite_buf def 	- {stores at least x-pos, tile no}
 
+// LCDC		-- lcd control flags
+// STAT		-- ppu status flags
+
 enum {SCAN, V_BLANK, H_BLANK, DRAW} state_modes;
 
 always_ff @(posedge clk) begin
