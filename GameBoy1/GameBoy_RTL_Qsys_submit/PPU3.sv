@@ -31,9 +31,9 @@ module PPU3
     output logic PX_valid
 );
 
-logic [7:0] LY, LX; 
+logic [7:0] LY, X_POS; 
 
-// x-pos in range [1, 160]
+// x-pos in range [0, 159]
 
 // need a definition for background_fifo
 // need a definition for sprite_fifo
@@ -47,7 +47,12 @@ enum {SCAN, V_BLANK, H_BLANK, DRAW} state_modes;
 
 always_ff @(posedge clk) begin
     if (rst) begin
-
+	X_POS <= 0;
+	LY <= 0;
+	// happen on every frame
+	// reset LY to 0
+	// x-pos to 0
+	// clear all buffers
     end else begin
 	/* -- Following block happens on a per scanline basis (456 Cycles per line) -- */
         case (PPU_MODE)
@@ -89,13 +94,8 @@ always_ff @(posedge clk) begin
 	    V_BLANK: begin
 		// idk man do some padding to 456 lines, 10 extra lines that last 456 cycles
 	    end
-
         endcase
-
     end
-
-
-
 
 end 
         
