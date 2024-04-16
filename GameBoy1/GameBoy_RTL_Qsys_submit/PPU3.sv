@@ -29,13 +29,15 @@ module PPU3
     output logic PX_valid
 );
 
+logic sprite_in_range;
 logic [7:0] LY, x_pos;  // x-pos in range [0, 159]
-logic [15:0] cur_addr;
 
 logic [1:0] ppu_mode;
 
 logic [3:0] sprites_loaded;
-logic [15:0] sprite_buf [9:0];
+//logic [15:0] sprite_buf [9:0];
+logic [7:0] sprite_y_buff;
+logic [7:0] sprite_x_buff;
 
 
 // need a definition for background_fifo
@@ -53,8 +55,9 @@ typedef enum {OAM_LOAD, OAM_CHECK} OAM_STATES_t;
 always_ff @(posedge clk) begin
     if (rst) begin
 	x_pos <= 0;
+	sprites_loaded <= 0;
 	LY <= 0;
-	cur_addr <= OAM_BASE_ADDR;
+	PPU_ADDR <= OAM_BASE_ADDR;
 	ppu_mode <= SCAN;
     end else begin
 	/* -- Following block happens on a per scanline basis (456 Cycles per line) -- */
@@ -102,15 +105,29 @@ always_ff @(posedge clk) begin
         endcase
     end
 
+// MUST UPDATE LCDC SOMEWHERE
+assign sprite_in_range = ((LY + 16 >= PPU_DATA_in) && \
+				(LY + 16 < PPU_DATA_in + (8 << LCDC[2])));
+
 /* -- OAM Scan State Machine -- */
 always_ff @(posedge clk) begin
 	// loading stage
 	if (ppu_mode == SCAN) begin
+		if (sprite_in_range && sprites_loaded < 10) begin
+			sprites_loaded <= sprites_loaded + 1;
+			sprite_y_buff[sprites_loaded] <= PPU_DATA_in;
+			sprite_found = 1;
+			PPU_ADDR <= PPU_ADDR + 1;
 		// 8000 addr method
 		// load in y-value byte
 		// if we like y-value
 		// 	populate with tile no
+		end
 	end
+end
+
+always_ff @(posedge clk) begin
+	PPU_ADDR <= cur_addr;
 end
 
 end 
