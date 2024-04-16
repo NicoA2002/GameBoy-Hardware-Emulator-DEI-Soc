@@ -40,11 +40,12 @@ logic [8:0] cycles;
 logic [1:0] ppu_mode;
 
 logic [3:0] sprites_loaded;
+
 logic [7:0] sprite_y_buff;
 logic [7:0] sprite_x_buff;
+logic [7:0] sprite_offset_buff [7:0]; 
 
-typedef enum {SCAN, V_BLANK, H_BLANK, DRAW} PPU_STATES_t;
-typedef enum {OAM_LOAD, OAM_CHECK} OAM_STATES_t;
+typedef enum {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
 
 /* External registers */
 logic [7:0] LCDC, STAT, SCX, SCY, LYC, DMA, BGP, OBP0, OBP1, WX, WY; // Register alias
@@ -153,16 +154,14 @@ always_ff @(posedge clk) begin
 			ppu_mode <= SCAN;
     end else begin
     	cycles <= cycles + 1;
-	/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
+		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
         case (ppu_mode)
-            SCAN: 
+            SCAN: begin
 		    	if (PPU_ADDR > OAM_END_ADDR) 
 					ppu_mode <= DRAW;
-	    	// go thru the OAM mem
-			// 	if sprite_y in range and x > 0
-			// 		add sprite data to sprite_buf
-			// switch to draw_mode when we have finished mem 
-			// 	-- (40 * 4 bytes have been read)
+				if (LY >= 144)
+					ppu_mode <= V_BLANK;
+			end
 	    DRAW: begin
 		// sprite-staging mode:
 		// 	1 - if sprite-x is in range grab it
@@ -188,12 +187,15 @@ always_ff @(posedge clk) begin
 		//
 		// if x-pos == 160 then move to h-blank
 	    end
-	    H_BLANK: begin
-		// stall to 456 cycles
-	    end
-	    V_BLANK: begin
-		// idk man do some padding to 456 lines, 10 extra lines that last 456 cycles
-	    end
+	    H_BLANK: 
+	    	if (cycles >= 455) begin		// we reached the end of the scanline
+				LY <= LY + 1;
+				x_pos <= 0;
+				ppu_mode <= SCAN;
+				cycles <= 0;
+			end
+	    V_BLANK: 							// not technically necessary but here for completeness
+			ppu_mode <= H_BLANK;
         endcase
     end
 
@@ -210,6 +212,7 @@ always_ff @(posedge clk) begin
 			if (sprite_in_range && sprites_loaded < 10) begin
 				sprites_loaded <= sprites_loaded + 1;
 				sprite_y_buff[sprites_loaded] <= PPU_DATA_in;
+				sprite_offset_buff[sprites_loaded] <= PPU_ADDR - OAM_BASE_ADDR;
 				sprite_found <= 1;
 				PPU_ADDR_INC(1);						// jumps to x-byte
 			end else
