@@ -2,6 +2,8 @@
 
 //Authors: Nicolas Alarcon, Claire Cizdziel, Donovan Sproule
 
+/* WARNING: DOES NOT HAVE INTERRUPTS OR ANY EXTERNAL OUTPUTS IMPLEMENTED */
+
 `define OAM_BASE_ADDR 16'hFE00
 `define OAM_BASE_ADDR 16'hFE9F
 
@@ -12,6 +14,7 @@ module PPU3
     input logic clk,
     input logic rst,
     
+    /* System access for PPU internal registers */
     input logic [15:0] ADDR,
     input logic WR,
     input logic RD,
@@ -19,11 +22,12 @@ module PPU3
     output logic [7:0] MMIO_DATA_in,
     
     /* Interrupts */
-    output logic IRQ_V_BLANK,	// handled by an assign block
+    output logic IRQ_V_BLANK,
     output logic IRQ_LCDC,
     
     output logic [1:0] PPU_MODE,
     
+    /* VRAM access for PPU */
     output logic PPU_RD,
     output logic [15:0] PPU_ADDR,
     input logic [7:0] PPU_DATA_in,
@@ -44,6 +48,20 @@ logic [3:0] sprites_loaded;
 logic [7:0] sprite_y_buff;
 logic [7:0] sprite_x_buff;
 logic [7:0] sprite_offset_buff [7:0]; 
+
+logic sprite_shift_go;
+logic sprite_shift_load;
+logic [1:0] sprite_shift_output;
+logic [7:0] sprite_tile_row [1:0];
+
+PPU_SHIFT_REG sprite_fifo(.clk(clk), .rst(rst), .data(sprite_tile_row), .go(sprite_shift_go), .load(sprite_shift_load), .q(sprite_shift_output));
+
+logic bg_shift_go;
+logic bg_shift_load;
+logic [1:0] bg_shift_output;
+logic [7:0] bg_tile_row [1:0];
+
+PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_shift_go), .load(bg_shift_load), .q(bg_shift_output));
 
 typedef enum {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
 
@@ -85,9 +103,12 @@ assign WY = FF4A;
 logic [7:0] FF4B;
 assign WX = FF4B;
 
+/* ----------------- End of declarations */
+
 /* Register Assignment
  * 
  * 	if a register memory address is being indexed it gets updated here 
+ *  -- As a warning the following may introduce timing oddities compared to other group
  */
 always_ff @(posedge clk)
 begin
@@ -152,7 +173,7 @@ always_ff @(posedge clk) begin
 			LY <= 0;
 			PPU_ADDR <= OAM_BASE_ADDR;
 			ppu_mode <= SCAN;
-    end else begin
+    end else if (LCDC[7]) begin
     	cycles <= cycles + 1;
 		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
         case (ppu_mode)
@@ -162,31 +183,8 @@ always_ff @(posedge clk) begin
 				if (LY >= 144)
 					ppu_mode <= V_BLANK;
 			end
-	    DRAW: begin
-		// sprite-staging mode:
-		// 	1 - if sprite-x is in range grab it
-		// 	2 - pause bg-staging
-		// 	3 - fetches sprite tile from buffer 
-		// 	4 - same as 2 & 3 in bg-stage mode
-		//
-		// bg-staging mode:
-		// 	1 - grabs the current tile (use x-pos as an offset
-		// 		from the base)
-		//	2 - grabs the corresponding row of byte from the tile
-		//		saved
-		//	3 - grabs the next row so that our color can be
-		//		encoded
-		//	4 - decode and push the row into the FIFO
-		//
-		// drawing mode:
-		// 	1 - apply the bg fifo mask for SCX
-		// 	2 - grab pixel and do mixing
-		// 	3 - push to LCD
-		// 	4 - increment x-pos	
-		// 	5 - check if we've hit the window
-		//
-		// if x-pos == 160 then move to h-blank
-	    end
+	    DRAW: 
+	    	// if x_pos is off-screen switch to H_blank
 	    H_BLANK: 
 	    	if (cycles >= 455) begin		// we reached the end of the scanline
 				LY <= LY + 1;
@@ -208,16 +206,15 @@ always_ff @(posedge clk) begin
 		sprites_loaded <= 0;
 		sprite_found <= 0;
 	end else if (ppu_mode == SCAN) begin
-		if (!cycles[0])					// forces alternating clock cycles
+		if (!cycles[0])	begin				// forces alternating clock cycles
 			if (sprite_in_range && sprites_loaded < 10) begin
 				sprites_loaded <= sprites_loaded + 1;
 				sprite_y_buff[sprites_loaded] <= PPU_DATA_in;
 				sprite_offset_buff[sprites_loaded] <= PPU_ADDR - OAM_BASE_ADDR;
 				sprite_found <= 1;
 				PPU_ADDR_INC(1);						// jumps to x-byte
-			end else
-				PPU_ADDR_INC(4);						// jumps to next sprite in OAM
-		else begin
+			end else PPU_ADDR_INC(4);						// jumps to next sprite in OAM
+		end else begin
 			if (sprite_found) begin
 				sprite_x_buff[sprites_loaded - 1] <= PPU_DATA_in;
 				PPU_ADDR_INC(3);						// jumps to next sprite in OAM
@@ -227,55 +224,73 @@ always_ff @(posedge clk) begin
 
 	end
 end 
+
+/* BG Draw Machine */
+always_ff @(posedge clk) begin
+	// sprite-staging mode:
+	// 	1 - if sprite-x is in range grab it
+	// 	2 - pause bg-staging
+	// 	3 - fetches sprite tile from buffer 
+	// 	4 - same as 2 & 3 in bg-stage mode
+	//
+	// bg-staging mode:
+	// 	1 - grabs the current tile (use x-pos as an offset
+	// 		from the base)
+	//	2 - grabs the corresponding row of byte from the tile
+	//		saved
+	//	3 - grabs the next row so that our color can be
+	//		encoded
+	//	4 - decode and push the row into the FIFO
+	//
+	// drawing mode:
+	// 	1 - apply the bg fifo mask for SCX
+	// 	2 - grab pixel and do mixing
+	// 	3 - push to LCD
+	// 	4 - increment x-pos	
+	// 	5 - check if we've hit the window
+	//
+	// if x-pos == 160 then move to h-blank
+end
         
 endmodule
-
-module FIFO #(
-  parameter  DataWidth = 32,
-  parameter  Depth     = 8,
-  localparam PtrWidth  = $clog2(Depth)
-) (
-  input  logic                 clk,
-  input  logic                 rstN,
-  input  logic                 writeEn,
-  input  logic [DataWidth-1:0] writeData,
-  input  logic                 readEn,
-  output logic [DataWidth-1:0] readData,
-  output logic                 full,
-  output logic                 empty
+    
+module PPU_SHIFT_REG
+(
+    input clk,
+    input rst,
+    input logic [7:0] data [1:0],
+    input logic go,
+    input logic load,
+    output logic [1:0] q
 );
 
-  logic [DataWidth-1:0] mem[Depth];
-  logic [PtrWidth:0] wrPtr, wrPtrNext;
-  logic [PtrWidth:0] rdPtr, rdPtrNext;
+logic [7:0] shift_reg [0:1];
 
-  always_comb begin
-    wrPtrNext = wrPtr;
-    rdPtrNext = rdPtr;
-    if (writeEn) begin
-      wrPtrNext = wrPtr + 1;
+always_ff @(posedge clk)
+begin
+    if (rst)
+    begin
+        shift_reg[0] <= 0;
+        shift_reg[1] <= 0;
     end
-    if (readEn) begin
-      rdPtrNext = rdPtr + 1;
+    else if (load)
+    begin
+        shift_reg[0] <= data[0];
+        shift_reg[1] <= data[1];
     end
-  end
-
-  always_ff @(posedge clk or negedge rstN) begin
-    if (!rstN) begin
-      wrPtr <= '0;
-      rdPtr <= '0;
-    end else begin
-      wrPtr <= wrPtrNext;
-      rdPtr <= rdPtrNext;
+    else
+    begin
+        if (go)
+        begin
+            shift_reg[0][7:1] <= shift_reg[0][6:0];
+            shift_reg[0][0] <= 0;
+            shift_reg[1][7:1] <= shift_reg[1][6:0];
+            shift_reg[1][0] <= 0;
+        end
     end
+end
 
-    mem[wrPtr[PtrWidth-1:0]] <= writeData;
-  end
-
-  assign readData = mem[rdPtr[PtrWidth-1:0]];
-
-  assign empty = (wrPtr[PtrWidth] == rdPtr[PtrWidth]) && (wrPtr[PtrWidth-1:0] == rdPtr[PtrWidth-1:0]);
-  assign full  = (wrPtr[PtrWidth] != rdPtr[PtrWidth]) && (wrPtr[PtrWidth-1:0] == rdPtr[PtrWidth-1:0]);
-
+assign q = {shift_reg[1][7], shift_reg[0][7]};
+        
 endmodule
     
