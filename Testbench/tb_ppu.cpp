@@ -47,9 +47,9 @@ int main(int argc, const char ** argv, const char ** env) {
 	tfp->open("ppu3.vcd");
 
 	for (time = 0 ; time < 10000 ; time += 10) {
-	    	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
-		if (time == 20) dut->rst = 1;
-//		if (time == 60) dut->rst = 0;
+	    	dut->clk = ((time % 20) >= 10) ? 1 : 0;
+			dut->rst = 0;  	// Simulate a 50 MHz clock
+		if (time < 20) dut->rst = 1;
 
     		dut->PPU_DATA_in = OAM_BUFF[dut->PPU_ADDR - 0xFE00];
     		dut->eval();     			// Run the simulation for a cycle
