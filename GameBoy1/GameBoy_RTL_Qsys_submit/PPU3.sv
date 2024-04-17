@@ -131,16 +131,16 @@ begin
     else
     begin
         FF40 <= (WR && (ADDR == 16'hFF40)) ? MMIO_DATA_out : FF40;
-		    FF41 <= (WR && (ADDR == 16'hFF41)) ? {MMIO_DATA_out[7:3], FF41[2:0]} : {FF41[7:3], LYC == LY, PPU_MODE};
-		    FF42 <= (WR && (ADDR == 16'hFF42)) ? MMIO_DATA_out : FF42;
-		    FF43 <= (WR && (ADDR == 16'hFF43)) ? MMIO_DATA_out : FF43;
-		    FF45 <= (WR && (ADDR == 16'hFF45)) ? MMIO_DATA_out : FF45;
-		    FF46 <= (WR && (ADDR == 16'hFF46)) ? MMIO_DATA_out : FF46;
-		    FF47 <= (WR && (ADDR == 16'hFF47)) ? MMIO_DATA_out : FF47;
-		    FF48 <= (WR && (ADDR == 16'hFF48)) ? MMIO_DATA_out : FF48;
-		    FF49 <= (WR && (ADDR == 16'hFF49)) ? MMIO_DATA_out : FF49;
-		    FF4A <= (WR && (ADDR == 16'hFF4A)) ? MMIO_DATA_out : FF4A;
-		    FF4B <= (WR && (ADDR == 16'hFF4B)) ? MMIO_DATA_out : FF4B;
+	    FF41 <= (WR && (ADDR == 16'hFF41)) ? {MMIO_DATA_out[7:3], FF41[2:0]} : {FF41[7:3], LYC == LY, PPU_MODE};
+	    FF42 <= (WR && (ADDR == 16'hFF42)) ? MMIO_DATA_out : FF42;
+	    FF43 <= (WR && (ADDR == 16'hFF43)) ? MMIO_DATA_out : FF43;
+	    FF45 <= (WR && (ADDR == 16'hFF45)) ? MMIO_DATA_out : FF45;
+	    FF46 <= (WR && (ADDR == 16'hFF46)) ? MMIO_DATA_out : FF46;
+	    FF47 <= (WR && (ADDR == 16'hFF47)) ? MMIO_DATA_out : FF47;
+	    FF48 <= (WR && (ADDR == 16'hFF48)) ? MMIO_DATA_out : FF48;
+	    FF49 <= (WR && (ADDR == 16'hFF49)) ? MMIO_DATA_out : FF49;
+	    FF4A <= (WR && (ADDR == 16'hFF4A)) ? MMIO_DATA_out : FF4A;
+	    FF4B <= (WR && (ADDR == 16'hFF4B)) ? MMIO_DATA_out : FF4B;
     end
 end
 

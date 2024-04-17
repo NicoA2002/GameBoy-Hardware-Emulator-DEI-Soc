@@ -3,6 +3,11 @@
 #include <verilated.h>
 #include <verilated_vcd_c.h>
 
+// input logic [15:0] ADDR,
+// input logic WR,
+// input logic [7:0] MMIO_DATA_out,
+// output logic [7:0] MMIO_DATA_in,
+
 typedef struct {
 	char y;
 	char x;
@@ -16,6 +21,7 @@ int main(int argc, const char ** argv, const char ** env) {
 	int i, time;
 	OAM_Ent ent;
 	int offset, exit_code;
+	char LCDC;
 	VPPU3 *dut;
 
 	offset = exit_code = 0;
@@ -47,9 +53,13 @@ int main(int argc, const char ** argv, const char ** env) {
 	dut->trace(tfp, 99);
 	tfp->open("ppu3.vcd");
 
+	LCDC = 0xFF;
+	// wr = 1;
+	// addr = 0xFF40;
+
 	for (time = 0 ; time < 10000 ; time += 10) {
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
-    	dut->rst = (time == 30) ? 1: 0;
+    	dut->rst = (time == 30) ? 1 : 0;
 
     	dut->PPU_DATA_in = OAM_BUFF[dut->PPU_ADDR - 0xFE00];
     	dut->eval();     			// Run the simulation for a cycle
