@@ -452,7 +452,7 @@
   <parameter name="mic_bypass" value="false" />
   <parameter name="sampling_rate" value="48 kHz" />
   <parameter name="video_format" value="NTSC" />
- <!--</module>
+</module>
  <module name="Audio" kind="altera_up_avalon_audio" version="18.0" enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="12254661" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
@@ -474,7 +474,6 @@
  </module>
  <module name="GameBoy" kind="GameBoy" version="1.0" enabled="1" />
  <module name="GameBoy_Audio" kind="GameBoy_Audio" version="1.0" enabled="1" />
- -->
  <module
    name="GameBoy_Cartridge"
    kind="GameBoy_Cartridge"
@@ -1311,7 +1310,7 @@
   <parameter name="baseAddress" value="0x0000" />
   <parameter name="defaultConnection" value="false" />
  </connection>
-  <!--<connection
+ <connection
    kind="avalon_streaming"
    version="18.1"
    start="GameBoy_Audio.avalon_streaming_left"
@@ -1321,7 +1320,6 @@
    version="18.1"
    start="GameBoy_Audio.avalon_streaming_right"
    end="Audio.avalon_right_channel_sink" />
- -->
  <connection
    kind="clock"
    version="18.1"
@@ -1387,7 +1385,7 @@
    version="18.1"
    start="Main_PLL.outclk2"
    end="GameBoy_VGA.clock_vga" />
- <!--<connection kind="clock" version="18.1" start="Main_PLL.outclk4" end="Audio.clk" />
+ <connection kind="clock" version="18.1" start="Main_PLL.outclk4" end="Audio.clk" />
  <connection
    kind="clock"
    version="18.1"
@@ -1409,7 +1407,6 @@
   <parameter name="startPortLSB" value="0" />
   <parameter name="width" value="0" />
  </connection>
- -->
  <connection
    kind="conduit"
    version="18.1"
@@ -1483,7 +1480,7 @@
    version="18.1"
    start="SOC_System_RST_Bridge.out_reset"
    end="AV_Config.reset" />
-  <!--<connection
+ <connection
    kind="reset"
    version="18.1"
    start="Audio_RST.out_reset"
@@ -1493,7 +1490,6 @@
    version="18.1"
    start="Audio_RST.out_reset"
    end="GameBoy_Audio.reset_sink" />
-   -->
  <connection
    kind="reset"
    version="18.1"
