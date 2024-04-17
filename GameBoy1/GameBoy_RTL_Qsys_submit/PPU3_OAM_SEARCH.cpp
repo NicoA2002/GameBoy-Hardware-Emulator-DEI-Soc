@@ -1,6 +1,7 @@
 #include <iostream>
 #include "VPPU3.h"
 #include <verilated.h>
+#include <verilated_vcd_c.h>
 
 typedef struct {
 	char y;
