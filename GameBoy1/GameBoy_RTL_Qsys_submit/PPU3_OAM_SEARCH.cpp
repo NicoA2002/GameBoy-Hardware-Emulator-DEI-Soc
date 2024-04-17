@@ -10,12 +10,6 @@ typedef struct {
 
 } OAM_Ent;
 
-#define ADD_ENT(x) \
-	OAM_BUFF[offset] = ent.y; \
-	OAM_BUFF[offset+1] = ent.x; \
-	OAM_BUFF[offset+2] = ent.tile_no; \
-	OAM_BUFF[offset+3] = ent.flags;
-
 int main(int argc, const char ** argv, const char ** env) {
 	char OAM_BUFF[160];
 	int i, time;
@@ -23,8 +17,7 @@ int main(int argc, const char ** argv, const char ** env) {
 	int offset, exit_code;
 	VPPU3 *dut;
 
-	exit_code = 0;
-	offset = 4;
+	offset = exit_code = 0;
 
 	for (i = 0; i < 160; i++)
 		OAM_BUFF[i] = 0; 
@@ -35,7 +28,12 @@ int main(int argc, const char ** argv, const char ** env) {
 	ent.flags = 5;
 
 	for (i = 0; i < 5; i++)
-		ADD_ENT(offset * i);
+		OAM_BUFF[offset] = ent.y;
+		OAM_BUFF[offset+1] = ent.x;
+		OAM_BUFF[offset+2] = ent.tile_no;
+		OAM_BUFF[offset+3] = ent.flags;
+
+		offset += 4;
 
 	Verilated::commandArgs(argc, argv);
 
