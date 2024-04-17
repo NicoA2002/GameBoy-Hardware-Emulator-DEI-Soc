@@ -4,11 +4,6 @@
 
 /* WARNING: DOES NOT HAVE INTERRUPTS OR ANY EXTERNAL OUTPUTS IMPLEMENTED */
 
-`define OAM_BASE_ADDR 16'hFE00
-`define OAM_BASE_ADDR 16'hFE9F
-
-`define PPU_ADDR_INC(x) PPU_ADDR <= PPU_ADDR + x;
-
 module PPU3
 (
     input logic clk,
@@ -36,18 +31,25 @@ module PPU3
     output logic PX_valid
 );
 
+`define OAM_BASE_ADDR 16'hFE00
+`define OAM_END_ADDR 16'hFE9F
+`define NO_BOOT 0
+
+`define PPU_ADDR_INC(x) PPU_ADDR <= PPU_ADDR + x;
+
 logic sprite_in_range;
 logic [7:0] LY, x_pos;  // x-pos in range [0, 159]
+logic [15:0] current_offset;
+logic [3:0] sprites_loaded;
+logic sprite_found;
 
 logic [8:0] cycles;
 
-logic [1:0] ppu_mode;
+// logic [1:0] PPU_MODE;
 
-logic [3:0] sprites_loaded;
-
-logic [7:0] sprite_y_buff;
-logic [7:0] sprite_x_buff;
-logic [7:0] sprite_offset_buff [7:0]; 
+logic [7:0] sprite_y_buff [9:0];
+logic [7:0] sprite_x_buff [9:0];
+logic [7:0] sprite_offset_buff [9:0]; 
 
 logic sprite_shift_go;
 logic sprite_shift_load;
@@ -63,7 +65,7 @@ logic [7:0] bg_tile_row [1:0];
 
 PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_shift_go), .load(bg_shift_load), .q(bg_shift_output));
 
-typedef enum {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
+typedef enum bit [1:0] {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
 
 /* External registers */
 logic [7:0] LCDC, STAT, SCX, SCY, LYC, DMA, BGP, OBP0, OBP1, WX, WY; // Register alias
@@ -171,53 +173,55 @@ always_ff @(posedge clk) begin
 			x_pos <= 0;
 			cycles <= 0;
 			LY <= 0;
-			PPU_ADDR <= OAM_BASE_ADDR;
-			ppu_mode <= SCAN;
+			PPU_ADDR <= `OAM_BASE_ADDR;
+			PPU_MODE <= SCAN;
     end else if (LCDC[7]) begin
     	cycles <= cycles + 1;
 		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
-        case (ppu_mode)
+        case (PPU_MODE)
             SCAN: begin
-		    	if (PPU_ADDR > OAM_END_ADDR) 
-					ppu_mode <= DRAW;
+		    	if (PPU_ADDR > `OAM_END_ADDR) 
+					PPU_MODE <= DRAW;
 				if (LY >= 144)
-					ppu_mode <= V_BLANK;
+					PPU_MODE <= V_BLANK;
 			end
-	    DRAW: 
-	    	// if x_pos is off-screen switch to H_blank
-	    H_BLANK: 
-	    	if (cycles >= 455) begin		// we reached the end of the scanline
-				LY <= LY + 1;
-				x_pos <= 0;
-				ppu_mode <= SCAN;
-				cycles <= 0;
-			end
-	    V_BLANK: 							// not technically necessary but here for completeness
-			ppu_mode <= H_BLANK;
+		    DRAW: 
+		    	LY <= LY;
+		    	// if x_pos is off-screen switch to H_blank
+		    H_BLANK: 
+		    	if (cycles >= 455) begin		// we reached the end of the scanline
+					LY <= LY + 1;
+					x_pos <= 0;
+					PPU_MODE <= SCAN;
+					cycles <= 0;
+				end
+		    V_BLANK: 							// not technically necessary but here for completeness
+				PPU_MODE <= H_BLANK;
         endcase
     end
+end
 
-assign sprite_in_range = ((LY + 16 >= PPU_DATA_in) && \
-				(LY + 16 < PPU_DATA_in + (8 << LCDC[2])));
-
+assign sprite_in_range = ((LY + 16 >= PPU_DATA_in) &&
+							(LY + 16 < PPU_DATA_in + (8 << LCDC[2])));
+assign current_offset = PPU_ADDR - `OAM_BASE_ADDR;
 /* -- OAM Scan State Machine -- */
 always_ff @(posedge clk) begin
-	if (rst || ppu_mode == H_BLANK) begin
+	if (rst || PPU_MODE == H_BLANK) begin
 		sprites_loaded <= 0;
 		sprite_found <= 0;
-	end else if (ppu_mode == SCAN) begin
+	end else if (PPU_MODE == SCAN) begin
 		if (!cycles[0])	begin				// forces alternating clock cycles
 			if (sprite_in_range && sprites_loaded < 10) begin
 				sprites_loaded <= sprites_loaded + 1;
 				sprite_y_buff[sprites_loaded] <= PPU_DATA_in;
-				sprite_offset_buff[sprites_loaded] <= PPU_ADDR - OAM_BASE_ADDR;
+				sprite_offset_buff[sprites_loaded] <= current_offset[7:0];
 				sprite_found <= 1;
-				PPU_ADDR_INC(1);						// jumps to x-byte
-			end else PPU_ADDR_INC(4);						// jumps to next sprite in OAM
+				`PPU_ADDR_INC(1);						// jumps to x-byte
+			end else `PPU_ADDR_INC(4);						// jumps to next sprite in OAM
 		end else begin
 			if (sprite_found) begin
 				sprite_x_buff[sprites_loaded - 1] <= PPU_DATA_in;
-				PPU_ADDR_INC(3);						// jumps to next sprite in OAM
+				`PPU_ADDR_INC(3);						// jumps to next sprite in OAM
 			end
 			sprite_found <= 0;
 		end
