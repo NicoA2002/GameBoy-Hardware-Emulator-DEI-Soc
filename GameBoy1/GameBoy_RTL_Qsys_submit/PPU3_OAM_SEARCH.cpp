@@ -18,9 +18,10 @@ typedef struct {
 
 int main(int argc, const char ** argv, const char ** env) {
 	char OAM_BUFF[160];
-	int i;
+	int i, time;
 	OAM_Ent ent;
 	int offset, exit_code;
+	VPPU3 *dut;
 
 	exit_code = 0;
 	offset = 4;
@@ -38,7 +39,7 @@ int main(int argc, const char ** argv, const char ** env) {
 
 	Verilated::commandArgs(argc, argv);
 
-	VPPU3 *dut = new VPPU3;  // Instantiate the ppu module
+	dut = new VPPU3;  	// Instantiate the ppu module
 
 	Verilated::traceEverOn(true);
 	VerilatedVcdC *tfp = new VerilatedVcdC;
@@ -47,11 +48,11 @@ int main(int argc, const char ** argv, const char ** env) {
 	tfp->open("ppu3.vcd");
 
 	for (time = 0 ; time < 10000 ; time += 10) {
-    	dut->clk = ((time % 20) >= 10) ? 1 : 0; // Simulate a 50 MHz clock
+    	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
 
     	dut->PPU_DATA_in = OAM_BUFF[dut->PPU_ADDR - 0xFE00];
-    	dut->eval();     // Run the simulation for a cycle
-    	tfp->dump(time); // Write the VCD file for this cycle
+    	dut->eval();     			// Run the simulation for a cycle
+    	tfp->dump(time); 			// Write the VCD file for this cycle
     }
 
 	tfp->close(); // Stop dumping the VCD file
