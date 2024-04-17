@@ -3,10 +3,10 @@
 // #include <verilated.h>
 
 typedef struct {
-	unsigned char y,
-	unsigned char x,
-	unsigned char tile_no,
-	unsigned char flags,
+	char y,
+	char x,
+	char tile_no,
+	char flags,
 
 } OAM_Ent;
 
@@ -17,7 +17,8 @@ typedef struct {
 	OAM_BUFF[offset+3] = ent.flags;
 
 int main(int argc, const char ** argv, const char ** env) {
-	unsigned char OAM_BUFF[160];
+	char OAM_BUFF[160];
+	int i;
 	OAM_Ent ent;
 	int offset, exit_code;
 
@@ -30,7 +31,7 @@ int main(int argc, const char ** argv, const char ** env) {
 	ent.y = 0;
 	ent.x = 30;
 	ent.tile_no = 5;
-	flags = 5;
+	ent.flags = 5;
 
 	for (i = 0; i < 5; i++)
 		ADD_ENT(offset * i);
