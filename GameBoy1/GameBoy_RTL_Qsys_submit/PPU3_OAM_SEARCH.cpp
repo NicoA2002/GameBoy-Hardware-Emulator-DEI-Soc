@@ -1,12 +1,12 @@
 #include <iostream>
-// #include "VPPU3.h"
-// #include <verilated.h>
+#include "VPPU3.h"
+#include <verilated.h>
 
 typedef struct {
-	char y,
-	char x,
-	char tile_no,
-	char flags,
+	char y;
+	char x;
+	char tile_no;
+	char flags;
 
 } OAM_Ent;
 
@@ -45,10 +45,6 @@ int main(int argc, const char ** argv, const char ** env) {
 
 	dut->trace(tfp, 99);
 	tfp->open("ppu3.vcd");
-
-	// output logic PPU_RD,
-    // output logic [15:0] PPU_ADDR,
-    // input logic [7:0] PPU_DATA_in,
 
 	for (time = 0 ; time < 10000 ; time += 10) {
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; // Simulate a 50 MHz clock
