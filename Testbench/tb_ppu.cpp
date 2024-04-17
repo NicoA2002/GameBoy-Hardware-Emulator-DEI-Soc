@@ -1,58 +1,67 @@
-#include <stdlib.h>
 #include <iostream>
+#include "VPPU3.h"
 #include <verilated.h>
 #include <verilated_vcd_c.h>
-#include "VPPU3.h"
-#include "VPPU3__Syms.h"
 
-#define MAX_SIM_TIME 20
-vluint64_t sim_time = 0;
+typedef struct {
+	char y;
+	char x;
+	char tile_no;
+	char flags;
 
-int main(int argc, char** argv, char** env) {
-    Valu *dut = new VPPU3;
+} OAM_Ent;
 
-    Verilated::traceEverOn(true);
-    VerilatedVcdC *m_trace = new VerilatedVcdC;
-    dut->trace(m_trace, 5);
-    m_trace->open("VPPU.vcd");
+int main(int argc, const char ** argv, const char ** env) {
+	char OAM_BUFF[160];
+	int i, time;
+	OAM_Ent ent;
+	int offset, exit_code;
+	VPPU3 *dut;
 
-    //need to feed in initial mem stuff
-    /*
-        VL_IN8(clk,0,0);
-    VL_IN8(rst,0,0);
-    VL_IN8(WR,0,0);
-    VL_IN8(RD,0,0);
-    VL_IN8(MMIO_DATA_out,7,0);
-    VL_OUT8(MMIO_DATA_in,7,0); out
-    VL_OUT8(IRQ_V_BLANK,0,0); out
-    VL_OUT8(IRQ_LCDC,0,0); out
-    VL_OUT8(PPU_MODE,1,0);
-    VL_OUT8(PPU_RD,0,0);
-    VL_IN8(PPU_DATA_in,7,0);
-    VL_OUT8(PX_OUT,1,0);
-    VL_OUT8(PX_valid,0,0);
-    VL_IN16(ADDR,15,0);
-    VL_OUT16(PPU_ADDR,15,0);    
-    */
+	offset = exit_code = 0;
 
+	for (i = 0; i < 160; i++)
+		OAM_BUFF[i] = 0; 
 
-    while (sim_time < MAX_SIM_TIME) {
-        //initial reset
-        dut->rst = (sim_time==1) ? 1 : 0;
+	ent.y = 0;
+	ent.x = 30;
+	ent.tile_no = 5;
+	ent.flags = 5;
 
+	for (i = 0; i < 5; i++)
+		OAM_BUFF[offset] = ent.y;
+		OAM_BUFF[offset+1] = ent.x;
+		OAM_BUFF[offset+2] = ent.tile_no;
+		OAM_BUFF[offset+3] = ent.flags;
 
-        dut->clk ^= 1;
-        dut->eval();
+		offset += 4;
 
-        if (sim_time>)
+	Verilated::commandArgs(argc, argv);
 
+	dut = new VPPU3;  	// Instantiate the ppu module
 
-        m_trace->dump(sim_time);
-        sim_time++;
-    }
+	Verilated::traceEverOn(true);
+	VerilatedVcdC *tfp = new VerilatedVcdC;
 
-    m_trace->close();
-    delete dut;
-    exit(EXIT_SUCCESS);
+	dut->trace(tfp, 99);
+	tfp->open("ppu3.vcd");
+
+	for (time = 0 ; time < 10000 ; time += 10) {
+	    	dut->clk = ((time % 20) >= 10) ? 1 : 0;
+			dut->rst = 0;  	// Simulate a 50 MHz clock
+		if (time < 20) dut->rst = 1;
+
+    		dut->PPU_DATA_in = OAM_BUFF[dut->PPU_ADDR - 0xFE00];
+    		dut->eval();     			// Run the simulation for a cycle
+    		tfp->dump(time); 			// Write the VCD file for this cycle
+    	}
+
+	tfp->close(); // Stop dumping the VCD file
+	delete tfp;
+
+	dut->final(); // Stop the simulation
+	delete dut;
+
+	return exit_code;
 }
 
