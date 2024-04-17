@@ -396,7 +396,7 @@
    type="conduit"
    dir="end" />
  <interface name="audio_clk" internal="Main_PLL.outclk3" type="clock" dir="start" />
- <interface
+<interface
    name="av_config"
    internal="AV_Config.external_interface"
    type="conduit"
@@ -452,7 +452,7 @@
   <parameter name="mic_bypass" value="false" />
   <parameter name="sampling_rate" value="48 kHz" />
   <parameter name="video_format" value="NTSC" />
- </module>
+</module>
  <module name="Audio" kind="altera_up_avalon_audio" version="18.0" enabled="1">
   <parameter name="AUTO_CLK_CLOCK_RATE" value="12254661" />
   <parameter name="AUTO_DEVICE_FAMILY" value="Cyclone V" />
@@ -1385,7 +1385,7 @@
    version="18.1"
    start="Main_PLL.outclk2"
    end="GameBoy_VGA.clock_vga" />
- <!--<connection kind="clock" version="18.1" start="Main_PLL.outclk4" end="Audio.clk" />
+ <connection kind="clock" version="18.1" start="Main_PLL.outclk4" end="Audio.clk" />
  <connection
    kind="clock"
    version="18.1"
@@ -1407,7 +1407,6 @@
   <parameter name="startPortLSB" value="0" />
   <parameter name="width" value="0" />
  </connection>
- -->
  <connection
    kind="conduit"
    version="18.1"

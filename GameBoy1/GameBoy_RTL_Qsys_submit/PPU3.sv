@@ -49,7 +49,7 @@ logic [8:0] cycles;
 
 logic [7:0] sprite_y_buff [9:0];
 logic [7:0] sprite_x_buff [9:0];
-logic [7:0] sprite_offset_buff [9:0]; 
+logic [7:0] sprite_offset_buff [9:0]; 		// stores start of sprite entries in OAM (entry + 2 => for tile no.)
 
 logic sprite_shift_go;
 logic sprite_shift_load;
