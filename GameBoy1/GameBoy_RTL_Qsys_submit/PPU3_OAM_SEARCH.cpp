@@ -28,13 +28,14 @@ int main(int argc, const char ** argv, const char ** env) {
 	ent.tile_no = 5;
 	ent.flags = 5;
 
-	for (i = 0; i < 5; i++)
+	for (i = 0; i < 5; i++) {
 		OAM_BUFF[offset] = ent.y;
 		OAM_BUFF[offset+1] = ent.x;
 		OAM_BUFF[offset+2] = ent.tile_no;
 		OAM_BUFF[offset+3] = ent.flags;
 
 		offset += 4;
+	}
 
 	Verilated::commandArgs(argc, argv);
 
@@ -48,6 +49,7 @@ int main(int argc, const char ** argv, const char ** env) {
 
 	for (time = 0 ; time < 10000 ; time += 10) {
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
+    	dut->rst = (time == 30) ? 1: 0;
 
     	dut->PPU_DATA_in = OAM_BUFF[dut->PPU_ADDR - 0xFE00];
     	dut->eval();     			// Run the simulation for a cycle
