@@ -74,6 +74,10 @@ assign READ_LY = LY > 80 ? LY - 80 : 0;
 
 logic [7:0] GB_LX, GB_LY;
 logic [2:0] GB_COL_CNT, GB_ROW_CNT;
+
+//parameters for scaling to VGA 480x432 (3x larger)
+parameter X_SCALE = 3; //repeat each pixel 3 times horizontally
+parameter Y_SCALE = 3; //repeat each pixel 3 times vertically
 always_ff @(posedge clk_vga)
 begin
 	if (LX < 160 || LX >= 1120)
@@ -86,7 +90,7 @@ begin
 		GB_COL_CNT <= GB_COL_CNT + 1;
 	end
 	
-	if (GB_COL_CNT == 5)
+	if (GB_COL_CNT == X_SCALE)
 	begin
 		GB_COL_CNT <= 0;
 		GB_LX <= GB_LX + 1;
@@ -102,7 +106,7 @@ begin
 		GB_ROW_CNT <= GB_ROW_CNT + 1;
 	end
 	
-	if (GB_ROW_CNT == 6)
+	if (GB_ROW_CNT == Y_SCALE)
 	begin
 		GB_ROW_CNT <= 0;
 		GB_LY <= GB_LY + 1;
@@ -127,12 +131,6 @@ begin
 	end
 end
 
-		//;Palette Name: Kirokaze Gameboy
-		//;Colors: 4
-		//FF332c50
-		//FF46878f
-		//FF94e344
-		//FFe2f3e4
 always_comb 
 begin
    {VGA_R, VGA_G, VGA_B} = {8'h00, 8'h00, 8'h00};
