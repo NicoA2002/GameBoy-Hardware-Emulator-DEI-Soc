@@ -3,11 +3,6 @@
 #include <verilated.h>
 #include <verilated_vcd_c.h>
 
-// input logic [15:0] ADDR,
-// input logic WR,
-// input logic [7:0] MMIO_DATA_out,
-// output logic [7:0] MMIO_DATA_in,
-
 typedef struct {
 	char y;
 	char x;
@@ -29,7 +24,7 @@ int main(int argc, const char ** argv, const char ** env) {
 	for (i = 0; i < 160; i++)
 		OAM_BUFF[i] = 1; 
 
-	ent.y = 0;
+	ent.y = 16;
 	ent.x = 30;
 	ent.tile_no = 5;
 	ent.flags = 5;
