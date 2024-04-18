@@ -189,8 +189,7 @@ always_ff @(posedge clk) begin
 					PPU_MODE <= V_BLANK;
 			end
 		    DRAW: 
-		    	LY <= LY;
-		    	// if x_pos is off-screen switch to H_blank
+		    	if (x_pos > 144) PPU_MODE <= H_BLANK;
 		    H_BLANK: 
 		    	if (cycles >= 455) begin		// we reached the end of the scanline
 					LY <= LY + 1;
