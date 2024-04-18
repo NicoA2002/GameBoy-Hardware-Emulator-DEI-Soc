@@ -2,13 +2,12 @@
 #include "VPPU3.h"
 #include <verilated.h>
 #include <verilated_vcd_c.h>
+#include <cstdio>
 
 // input logic [15:0] ADDR,
 // input logic WR,
 // input logic [7:0] MMIO_DATA_out,
 // output logic [7:0] MMIO_DATA_in,
-
-
 
 int main(int argc, const char ** argv, const char ** env) {
 	char Tile_Map[1024];
@@ -22,7 +21,8 @@ int main(int argc, const char ** argv, const char ** env) {
 	VPPU3 *dut;
 	int tile_req;
 	offset = exit_code = 0;
-
+	char line_buf[160] = {0};
+	char line_buf_cnt = 0;
 
 	Verilated::commandArgs(argc, argv);
 
@@ -51,6 +51,11 @@ int main(int argc, const char ** argv, const char ** env) {
 		if (tile_req == 0) dut->PPU_DATA_in = 0;
 		if (tile_req == 1) dut->PPU_DATA_in = 1;
 
+		if (dut->PX_valid) line_buf[line_buf_cnt = (line_buf_cnt + 1)%160] = dut->PX_OUT;
+		if (line_buf_cnt == 159) {
+			for (int i = 0; i<160; i++) printf("%d", line_buf[i]);
+			printf(" \n");
+		}
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
     }
