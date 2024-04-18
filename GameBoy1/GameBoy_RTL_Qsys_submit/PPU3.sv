@@ -103,8 +103,6 @@ assign WY = FF4A;
 logic [7:0] FF4B;
 assign WX = FF4B;
 
-/* ----------------- End of declarations */
-
 /* Register Assignment
  * 
  * 	if a register memory address is being indexed it gets updated here 
@@ -169,7 +167,7 @@ end
 always_ff @(posedge clk) begin
     if (rst) begin
 			x_pos <= 0;
-			cycles <= 0;
+			cycles <= 1;
 			LY <= 0;
 			PPU_ADDR <= `OAM_BASE_ADDR;
 			PPU_MODE <= SCAN;
@@ -202,19 +200,20 @@ end
 assign sprite_in_range = ((LY + 16 >= PPU_DATA_in) &&
 							(LY + 16 < PPU_DATA_in + (8 << LCDC[2])));
 assign current_offset = PPU_ADDR - `OAM_BASE_ADDR;
+
 /* -- OAM Scan State Machine -- */
 always_ff @(posedge clk) begin
 	if (rst || PPU_MODE == H_BLANK) begin
 		sprites_loaded <= 0;
 		sprite_found <= 0;
 	end else if (PPU_MODE == SCAN) begin
-		if (!cycles[0])	begin				// forces alternating clock cycles
+		if (!cycles[0])	begin								// forces alternating clock cycles
 			if (sprite_in_range && sprites_loaded < 10) begin
 				sprites_loaded <= sprites_loaded + 1;
 				sprite_y_buff[sprites_loaded] <= PPU_DATA_in;
 				sprite_offset_buff[sprites_loaded] <= current_offset[7:0];
 				sprite_found <= 1;
-				`PPU_ADDR_INC(1);						// jumps to x-byte
+				`PPU_ADDR_INC(1);							// jumps to x-byte
 			end else `PPU_ADDR_INC(4);						// jumps to next sprite in OAM
 		end else begin
 			if (sprite_found) begin
