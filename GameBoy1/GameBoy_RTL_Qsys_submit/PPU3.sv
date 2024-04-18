@@ -44,6 +44,10 @@ module PPU3
     output logic PX_valid
 );
 
+logic [15:0] BIG_PPU_DATA_in;
+logic [15:0] BIG_LY;
+logic [15:0] BIG_X;
+
 logic sprite_in_range;
 logic [7:0] LY, x_pos;  // x-pos in range [0, 159]
 logic [15:0] current_offset;
@@ -232,6 +236,8 @@ always_ff @(posedge clk) begin
 	end
 end 
 
+assign BIG_SHIT = (`TILE_BASE + ((PPU_DATA_in) << 4)) + ((LY[2:0]) << 1);
+
 /* BG Draw Machine */
 always_ff @(posedge clk) begin
 	if (rst) pixels_pushed <= 0;
@@ -240,7 +246,8 @@ always_ff @(posedge clk) begin
 			TILE_NO_STORE: begin
 				cur_tile <= PPU_DATA_in;
 				bg_fetch_mode <= ROW_1_LOAD;
-				PPU_ADDR <= (`TILE_BASE + ((PPU_DATA_in) << 4)) + ((LY[2:0]) << 1);
+				// PPU_ADDR <= (`TILE_BASE + ((PPU_DATA_in) << 4)) + ((LY[2:0]) << 1);
+				PPU_ADDR <= BIG_SHIT[15:0];
 			end
 			ROW_1_LOAD: begin
 				bg_tile_row[0] <= PPU_DATA_in;
@@ -257,7 +264,7 @@ always_ff @(posedge clk) begin
 					bg_pixel_go <= 0;
 					PPU_ADDR <= `BG_MAP_1_BASE_ADDR + x_pos + 8;
 					x_pos <= x + 8;
-					pixels_pushed <= 8;
+					pixels_pushed <= 7;
 				end else begin 
 					bg_pixel_go <= 1;
 					bg_fifo_load <= 0;
