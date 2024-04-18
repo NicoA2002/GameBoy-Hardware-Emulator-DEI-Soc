@@ -54,12 +54,20 @@ int main(int argc, const char ** argv, const char ** env) {
 	tfp->open("ppu3.vcd");
 
 	LCDC = 0xFF;
-	// wr = 1;
-	// addr = 0xFF40;
+
+	dut->WR = 1;
+	dut->ADDR = 0xFF40;
+	dut->MMIO_DATA_out = LCDC;
 
 	for (time = 0 ; time < 10000 ; time += 10) {
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
-    	dut->rst = (time == 30) ? 1 : 0;
+
+    	dut->rst = (time == 30) ? 1 : 0;	// pulses rst 
+    	if (time == 20) {
+    		dut->WR = 0;
+    		dut->ADDR = 0;
+    		dut->MMIO_DATA_out = 0;
+    	}
 
     	dut->PPU_DATA_in = OAM_BUFF[dut->PPU_ADDR - 0xFE00];
     	dut->eval();     			// Run the simulation for a cycle
