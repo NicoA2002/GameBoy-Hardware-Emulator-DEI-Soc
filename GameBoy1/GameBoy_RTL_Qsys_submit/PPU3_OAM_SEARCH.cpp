@@ -63,11 +63,6 @@ int main(int argc, const char ** argv, const char ** env) {
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
 
     	dut->rst = (time == 30) ? 1 : 0;	// pulses rst 
-    	if (time == 20) {
-    		dut->WR = 0;
-    		dut->ADDR = 0;
-    		dut->MMIO_DATA_out = 0;
-    	}
 
     	dut->PPU_DATA_in = OAM_BUFF[dut->PPU_ADDR - 0xFE00];
     	dut->eval();     			// Run the simulation for a cycle
