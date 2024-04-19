@@ -11,7 +11,7 @@
 `define BG_MAP_1_BASE_ADDR 16'h9800
 `define BG_MAP_1_END_ADDR 16'h9BFF
 
-`define TILE_BASE 8000
+`define TILE_BASE 16'h8000
 
 `define NO_BOOT 0
 
@@ -63,7 +63,6 @@ logic bg_fifo_go;
 logic bg_fifo_load;
 logic [1:0] bg_fetch_mode;
 logic [7:0] bg_tile_row [1:0];
-logic [7:0] cur_tile_addr;
 logic [2:0] pixels_pushed;
 
 PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(PX_OUT));
@@ -207,15 +206,13 @@ assign BIG_X = {8'b0,x_pos};
 always_ff @(posedge clk) begin
 	if (rst) begin
 		pixels_pushed <= 0;
-		tile_c <= 0;
+		tile_c <= 1;
 	end
 	if (PPU_MODE == DRAW) begin
 		case (bg_fetch_mode)
 			TILE_NO_STORE: begin
-				cur_tile_addr <= PPU_DATA_in;
-
 				bg_fetch_mode <= ROW_1_LOAD;
-				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);
+				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);	// tile_base + (16 * tile_no) + 2 * (LY % 8)
 			end
 			ROW_1_LOAD: begin
 				bg_tile_row[0] <= PPU_DATA_in;
@@ -227,6 +224,7 @@ always_ff @(posedge clk) begin
 				bg_fetch_mode <= FIFO_LOAD;
 			end
 			FIFO_LOAD: begin
+				PX_valid <= 0;
 				if (pixels_pushed == 0) begin
 					bg_fifo_load <= 1;
 					bg_fifo_go <= 0;
@@ -235,6 +233,7 @@ always_ff @(posedge clk) begin
 					x_pos <= x_pos + 8;
 					pixels_pushed <= 7;
 				end else begin 
+					PX_valid <= 1;
 					bg_fifo_go <= 1;
 					bg_fifo_load <= 0;
 					pixels_pushed <= pixels_pushed - 1;

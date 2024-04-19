@@ -4,15 +4,11 @@
 #include <verilated_vcd_c.h>
 #include <cstdio>
 
-// input logic [15:0] ADDR,
-// input logic WR,
-// input logic [7:0] MMIO_DATA_out,
-// output logic [7:0] MMIO_DATA_in,
-
 int main(int argc, const char ** argv, const char ** env) {
 	char Tile_Map[1024];
 
-	for (int i = 0; i<8; i++) Tile_Map[240 + i] = 1;
+	for (i = 0; i < 8; i++) 
+		Tile_Map[240 + i] = 1;
 
 	int i, time;
 	int offset, exit_code;
@@ -51,7 +47,8 @@ int main(int argc, const char ** argv, const char ** env) {
 
 		if (dut->PX_valid) line_buf[line_buf_cnt = (line_buf_cnt + 1)%160] = dut->PX_OUT;
 		if (line_buf_cnt == 159) {
-			for (int i = 0; i<160; i++) printf("%d", line_buf[i]);
+			for (int i = 0; i<160; i++) 
+				printf("%d", line_buf[i]);
 			printf(" \n");
 		}
     	dut->eval();     			// Run the simulation for a cycle
