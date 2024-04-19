@@ -44,7 +44,7 @@ module PPU3
     output logic PX_valid
 );
 
-logic [15:0] BIG_TMP1, BIG_TMP2, BIG_X;
+logic [15:0] BIG_DATA_in, BIG_LY, BIG_X;
 logic [15:0] tile_c;
 
 logic sprite_in_range;
@@ -235,8 +235,8 @@ always_ff @(posedge clk) begin
 	end
 end 
 
-assign BIG_TMP1 = {8'b0,PPU_DATA_in};
-assign BIG_TMP2 = {13'b0, LY[2:0]};
+assign BIG_DATA_in = {8'b0,PPU_DATA_in};
+assign BIG_LY = {13'b0, LY[2:0]};
 assign BIG_X = {8'b0,x_pos};
 
 /* BG Draw Machine */
@@ -251,8 +251,7 @@ always_ff @(posedge clk) begin
 				cur_tile_addr <= PPU_DATA_in;
 
 				bg_fetch_mode <= ROW_1_LOAD;
-				// PPU_ADDR <= (`TILE_BASE + ((PPU_DATA_in) << 4)) + ((LY[2:0]) << 1);
-				PPU_ADDR <= `TILE_BASE + (BIG_TMP2 << 1) + (BIG_TMP1 << 4);
+				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);
 			end
 			ROW_1_LOAD: begin
 				bg_tile_row[0] <= PPU_DATA_in;
