@@ -8,8 +8,8 @@
 `define OAM_BASE_ADDR 16'hFE00
 `define OAM_END_ADDR 16'hFE9F
 
-`define BG_MAP_1_BASE_ADDR 9800
-`define BG_MAP_1_END_ADDR 9BFF
+`define BG_MAP_1_BASE_ADDR 16'h9800
+`define BG_MAP_1_END_ADDR 16'h9BFF
 
 `define TILE_BASE 8000
 
