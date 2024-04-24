@@ -4,10 +4,39 @@
 #include <verilated_vcd_c.h>
 #include <cstdio>
 
+void writePPM(const char* filename, int width, int height, const unsigned char* pixels) {
+    std::ofstream file(filename, std::ios::out | std::ios::binary);
+    if (!file) {
+        std::cerr << "Error: Unable to open file for writing." << std::endl;
+        return;
+    }
+
+    // Write PPM header
+    file << "P6\n" << width << " " << height << "\n255\n";
+
+    // Write pixel data
+    for (int i = 0; i < width * height; ++i) {
+        unsigned char r = mapToByte(pixels[i]);
+        unsigned char g = mapToByte(pixels[i]);
+        unsigned char b = mapToByte(pixels[i]);
+        file.put(r);
+        file.put(g);
+        file.put(b);
+    }
+
+    file.close();
+}
+
+
 int main(int argc, const char ** argv, const char ** env) {
 	char Tile_Map[1024];
+	char pixels[160*144];
 
 	int i, time;
+
+	for (i = 0; i < 8; i++) 
+		Tile_Map[240 + i] = 1;
+	i = 0;
 	int offset, exit_code;
 	char LCDC;
 	VPPU3 *dut;
@@ -15,9 +44,6 @@ int main(int argc, const char ** argv, const char ** env) {
 	offset = exit_code = 0;
 	char line_buf[160] = {0};
 	char line_buf_cnt = 0;
-
-	for (i = 0; i < 8; i++) 
-		Tile_Map[240 + i] = 1;
 
 	Verilated::commandArgs(argc, argv);
 
@@ -45,7 +71,7 @@ int main(int argc, const char ** argv, const char ** env) {
 		if (tile_req == 0) dut->PPU_DATA_in = 0;
 		if (tile_req == 1) dut->PPU_DATA_in = 1;
 
-		if (dut->PX_valid) line_buf[line_buf_cnt = (line_buf_cnt + 1)%160] = dut->PX_OUT;
+		if (dut->PX_valid) pixels[i++] = line_buf[line_buf_cnt = (line_buf_cnt + 1)%160] = dut->PX_OUT;
 		if (line_buf_cnt == 159) {
 			for (int i = 0; i<160; i++) 
 				printf("%d", line_buf[i]);
@@ -54,6 +80,8 @@ int main(int argc, const char ** argv, const char ** env) {
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
     }
+
+	writePPM("map.ppm", 160, 144, pixels);
 
 	tfp->close(); // Stop dumping the VCD file
 	delete tfp;
