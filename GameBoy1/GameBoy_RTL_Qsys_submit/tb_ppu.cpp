@@ -7,9 +7,6 @@
 int main(int argc, const char ** argv, const char ** env) {
 	char Tile_Map[1024];
 
-	for (i = 0; i < 8; i++) 
-		Tile_Map[240 + i] = 1;
-
 	int i, time;
 	int offset, exit_code;
 	char LCDC;
@@ -18,6 +15,9 @@ int main(int argc, const char ** argv, const char ** env) {
 	offset = exit_code = 0;
 	char line_buf[160] = {0};
 	char line_buf_cnt = 0;
+
+	for (i = 0; i < 8; i++) 
+		Tile_Map[240 + i] = 1;
 
 	Verilated::commandArgs(argc, argv);
 
