@@ -63,7 +63,7 @@ logic bg_fifo_go;
 logic bg_fifo_load;
 logic [1:0] bg_fetch_mode;
 logic [7:0] bg_tile_row [1:0];
-logic [2:0] pixels_pushed;
+logic [3:0] pixels_pushed;
 
 PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(PX_OUT));
 
