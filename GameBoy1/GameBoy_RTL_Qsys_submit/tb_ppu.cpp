@@ -16,9 +16,9 @@ void writePPM(const char* filename, int width, int height, const unsigned char* 
 
     // Write pixel data
     for (int i = 0; i < width * height; ++i) {
-        unsigned char r = mapToByte(pixels[i]);
-        unsigned char g = mapToByte(pixels[i]);
-        unsigned char b = mapToByte(pixels[i]);
+        unsigned char r = pixels[i] * 85;
+        unsigned char g = pixels[i] * 85;
+        unsigned char b = pixels[i] * 85;
         file.put(r);
         file.put(g);
         file.put(b);
@@ -30,12 +30,12 @@ void writePPM(const char* filename, int width, int height, const unsigned char* 
 
 int main(int argc, const char ** argv, const char ** env) {
 	char Tile_Map[1024];
-	char pixels[160*144];
+	unsigned char pixels[160*144];
 
 	int i, time;
 
 	for (i = 0; i < 8; i++) 
-		Tile_Map[240 + i] = 1;
+		Tile_Map[0 + i] = 1;
 	i = 0;
 	int offset, exit_code;
 	char LCDC;
@@ -67,7 +67,7 @@ int main(int argc, const char ** argv, const char ** env) {
 		dut->PPU_DATA_in = 0;
 
 		//for map 2 and 8000 addressing method, due to LCDC = FF
-		tile_req = (dut->PPU_ADDR - 0x9C00)/16;
+		tile_req = (dut->PPU_ADDR - 0x8000)/16;
 		if (tile_req == 0) dut->PPU_DATA_in = 0;
 		if (tile_req == 1) dut->PPU_DATA_in = 1;
 
