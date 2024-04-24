@@ -14,7 +14,7 @@ int main(int argc, const char ** argv, const char ** env)
 {
 	char tile_map[1024];
 	char tile_1[16], tile_2[16];
-	char tile[2] = {tile_1, tile_2};
+	char tiles[2] = {tile_1, tile_2};
 
 	int i, time, offset, exit_code, tile_req;
 	char LCDC, line_buf_cnt = 0;
@@ -57,21 +57,21 @@ int main(int argc, const char ** argv, const char ** env)
 
 		//for map 2 and 8000 addressing method, due to LCDC = FF
 		if (dut->PPU_MODE == DRAW) {
-			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR <= BG_MAP_1_END_ADDR) {	// if its requesting bg map
+			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && (dut->PPU_ADDR <= BG_MAP_1_END_ADDR)) {	// if its requesting bg map
 				dut->PPU_DATA_in = tile_map[dut->PPU_ADDR - BG_MAP_1_BASE_ADDR];				// gives it back a tile no
+				std::cout << "Sending tile no. " << tile_map[dut->PPU_ADDR - BG_MAP_1_BASE_ADDR] << std::endl;
 			}
 			else if (dut->PPU_ADDR >= TILE_BASE) {
-				dut->PPU_DATA_in = tile[(int)(dut->PPU_ADDR - TILE_BASE / 16)][(dur->PPU_ADDR - TILE_BASE) % 16];
+				dut->PPU_DATA_in = tiles[(int)(dut->PPU_ADDR - TILE_BASE / 16)][(dur->PPU_ADDR - TILE_BASE) % 16];
+				std::cout << "Indexing tile " << (int)(dut->PPU_ADDR - TILE_BASE / 16) << " on line " << (dur->PPU_ADDR - TILE_BASE) % 16 << std::endl;
 			}
-
-		}
-
-		if (dut->PX_valid) 
-			line_buf[line_buf_cnt = (line_buf_cnt + 1) % 160] = dut->PX_OUT;
-		if (line_buf_cnt == 159) {
-			for (i = 0; i < 160; i++)
-				std::cout << (int) line_buf[i];
+			if (dut->PX_valid) 
+				line_buf[line_buf_cnt = (line_buf_cnt + 1) % 160] = dut->PX_OUT;
+			if (line_buf_cnt == 159) {
+				for (i = 0; i < 160; i++)
+					std::cout << (int) line_buf[i];
 			std::cout << std::endl;
+		}
 		}
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
