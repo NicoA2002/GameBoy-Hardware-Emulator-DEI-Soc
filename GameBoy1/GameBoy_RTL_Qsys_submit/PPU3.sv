@@ -279,7 +279,8 @@ always_ff @(posedge clk) begin
 				PPU_MODE <= H_BLANK;
         endcase
     end
-end     
+end   
+  
 endmodule
     
 module PPU_SHIFT_REG
