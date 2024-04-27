@@ -359,8 +359,11 @@ always_ff @(posedge clk) begin
 		case (px_mix_mode) begin
 			MIX_LOAD: begin
 					pixels_pushed <= pixels_pushed - 1;
-					if (pixels_pushed > 0) begin
-						// do the pixel mixing here
+					if (pixels_pushed > 0) begin			// not how it'll work in final. just places sprites > bg
+						if (sp_out == 2'h0)
+							PX_OUT <= bg_out;
+						else 
+							PX_OUT <= sp_out;
 					end
 
 					if (pixels_pushed == 1 && (sp_fetch_mode == SP_READY) && (bg_fetch_mode == BG_READY)) begin
@@ -389,8 +392,6 @@ always_ff @(posedge clk) begin
 					PX_valid <= 1;
 					pixels_pushed <= 8; 
 					mix_mode <= MIX_LOAD;
-					// bg_fetch_mode <= BG_TILE_NO_STORE;
-					// pixels_pushed <= pixels_pushed - 1;
 				end
 		end
 	end
