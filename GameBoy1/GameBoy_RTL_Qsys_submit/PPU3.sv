@@ -265,7 +265,7 @@ always_ff @(posedge clk) begin
 				bg_fetch_mode <= FIFO_STALL;
 			end
 			FIFO_STALL: begin
-				if (pixels_pushed == 0) begin
+				if (pixels_pushed == 1) begin
 					bg_fifo_load <= 1;
 					bg_fifo_go <= 0;
 					PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
