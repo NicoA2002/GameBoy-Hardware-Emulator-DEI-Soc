@@ -18,7 +18,8 @@
 `define PPU_ADDR_INC(x) PPU_ADDR <= PPU_ADDR + x;
 
 typedef enum bit [1:0] {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
-typedef enum bit [2:0] {TILE_NO_STORE, ROW_1_LOAD, ROW_2_LOAD, FIFO_STALL, FIFO_PUSH} DRAW_STATES_t;
+typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_FIFO_STALL, BG_FIFO_PUSH, BG_PAUSE} BG_DRAW_STATES_t;
+typedef enum bit [2:0] {SP_TILE_NO_STORE, SP_ROW_1_LOAD, SP_ROW_2_LOAD, SP_FIFO_STALL, SP_FIFO_PUSH, SP_SEARCH} SP_DRAW_STATES_t;
 
 module PPU3
 (
@@ -64,11 +65,23 @@ logic [7:0] sprite_offset_buff [9:0]; 		// stores start of sprite entries in OAM
 
 logic bg_fifo_go;
 logic bg_fifo_load;
+
+logic sp_fifo_go;
+logic sp_fifo_load;
+
+
 logic [2:0] bg_fetch_mode;
 logic [7:0] bg_tile_row [1:0];
+logic [7:0] sp_tile_row [1:0];
 logic [3:0] pixels_pushed;
 
-PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(PX_OUT));
+logic [1:0] bg_out;
+logic [1:0] sp_out;
+
+
+// PX_OUT will 
+PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(bg_out));
+PPU_SHIFT_REG sp_fifo(.clk(clk), .rst(rst), .data(sp_tile_row), .go(sp_fifo_go), .load(sp_fifo_load), .q(sp_out));
 
 /* External registers */
 logic [7:0] LCDC, STAT, SCX, SCY, LYC, DMA, BGP, OBP0, OBP1, WX, WY; // Register alias
@@ -161,7 +174,7 @@ always_ff @(posedge clk) begin
 		    	// if (PPU_ADDR == `OAM_END_ADDR) begin
 	    		if (cycles == 80) begin
 					PPU_MODE <= DRAW;
-					bg_fetch_mode <= TILE_NO_STORE;
+					bg_fetch_mode <= BG_TILE_NO_STORE;
 					x_pos <= 0;
 					PPU_ADDR <= `BG_MAP_1_BASE_ADDR;		// might shit the bed if we have 40 sprites
 		    	end
@@ -246,43 +259,66 @@ always_ff @(posedge clk) begin
 		pixels_pushed <= 1;
 		tile_c <= 1;
 	end
+
+	// acting as a schematic but missing a couple details: SCX, Multiple addressing forms, etc
+	// BG_FIFO_STALL and BG_FIFO_PUSH should likely be removed from this machine and put into
+	// 		a pixel mixing machine. So the primary purpose of this is to load and then stall
+	// 		same is true for the 
 	if (PPU_MODE == DRAW) begin
 		if (bg_fifo_go == 1) pixels_pushed <= pixels_pushed - 1;
 		if (pixels_pushed == 1) PX_valid <= 0;
 
 		case (bg_fetch_mode)
-			TILE_NO_STORE: begin
-				bg_fetch_mode <= ROW_1_LOAD;
+			BG_TILE_NO_STORE: begin
+				bg_fetch_mode <= BG_ROW_1_LOAD;
 				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);	// tile_base + (16 * tile_no) + 2 * (LY % 8)
 			end
-			ROW_1_LOAD: begin
+			BG_ROW_1_LOAD: begin
 				bg_tile_row[0] <= PPU_DATA_in;
-				bg_fetch_mode <= ROW_2_LOAD;
+				bg_fetch_mode <= BG_ROW_2_LOAD;
 				`PPU_ADDR_INC(1);
 			end
-			ROW_2_LOAD: begin
+			BG_ROW_2_LOAD: begin
 				bg_tile_row[1] <= PPU_DATA_in;
-				bg_fetch_mode <= FIFO_STALL;
+				bg_fetch_mode <= BG_FIFO_STALL;
 			end
-			FIFO_STALL: begin
+			BG_FIFO_STALL: begin
 				if (pixels_pushed == 1) begin
 					bg_fifo_load <= 1;
 					bg_fifo_go <= 0;
 					PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
-					bg_fetch_mode <= FIFO_PUSH;
+					bg_fetch_mode <= BG_FIFO_PUSH;
 					tile_c <= tile_c + 1;
 					x_pos <= x_pos + 8;
 				end
 			end
-			FIFO_PUSH: begin
+			BG_FIFO_PUSH: begin
 				PX_valid <= 1;
 				bg_fifo_go <= 1;
 				pixels_pushed <= 8; 
 				bg_fifo_load <= 0;
-				// pixels_pushed <= pixels_pushed - 1;
-				bg_fetch_mode <= TILE_NO_STORE;
+				bg_fetch_mode <= BG_TILE_NO_STORE;
 			end
-			default: begin
+			BG_PAUSE: begin
+				// during sprite fetching we will pause here
+			end
+			default: begin	// Used to suppress warnings
+			end
+		endcase
+	end
+end
+
+/* SP Draw Machine */
+always_ff @(posedge clk) begin
+	if (rst) begin
+		pixels_pushed <= 1;
+		tile_c <= 1;
+	end
+	if (PPU_MODE == DRAW) begin		// most likely will have to be modified for pixel-mixing
+		case (bg_fetch_mode)
+			// sprite will first have to find out if its in this tile
+			// then sprite should be loaded into the sprite_fifo buffer
+			// it should then also stall until it is ready to be flushed out
 			end
 		endcase
 	end
