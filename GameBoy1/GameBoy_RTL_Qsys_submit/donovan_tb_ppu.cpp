@@ -22,7 +22,7 @@ int main(int argc, const char ** argv, const char ** env)
 	tile_1[1] = 0x00;	// 0000_0000
 
 	tile_2[0] = 0xAA;	// 1010_1010
-	tile_2[0] = 0x55;	// 0101_0101
+	tile_2[1] = 0x55;	// 0101_0101
 
 	// row_code flip between 0 and 1
 
