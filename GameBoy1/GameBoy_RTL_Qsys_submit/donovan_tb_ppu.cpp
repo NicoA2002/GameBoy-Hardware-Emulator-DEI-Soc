@@ -41,6 +41,7 @@ int main(int argc, const char ** argv, const char ** env)
 	dut->ADDR = 0xFF40;
 	dut->MMIO_DATA_out = LCDC;
 
+	dut->PPU_DATA_in = 0;
 	for (time = 0 ; time < 10000 ; time += 10) {
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
     	if (dut->clk == 1)
@@ -50,7 +51,6 @@ int main(int argc, const char ** argv, const char ** env)
     	if (dut->rst == 1)
     		cycles = 0;
 
-		dut->PPU_DATA_in = 0;
 		//for map 2 and 8000 addressing method, due to LCDC = FF
 		if (dut->PPU_MODE == DRAW && dut->clk == 1) {
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR)
