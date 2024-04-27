@@ -68,7 +68,7 @@ logic [3:0] pixels_pushed;
 PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(PX_OUT));
 
 typedef enum bit [1:0] {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
-typedef enum bit [1:0] {TILE_NO_STORE, ROW_1_LOAD, ROW_2_LOAD, FIFO_LOAD} DRAW_STATES_t;
+typedef enum bit [1:0] {TILE_NO_STORE, ROW_1_LOAD, ROW_2_LOAD, FIFO_STALL, FIFO_PUSH} DRAW_STATES_t;
 
 /* External registers */
 logic [7:0] LCDC, STAT, SCX, SCY, LYC, DMA, BGP, OBP0, OBP1, WX, WY; // Register alias
@@ -247,7 +247,9 @@ always_ff @(posedge clk) begin
 		tile_c <= 1;
 	end
 	if (PPU_MODE == DRAW) begin
-		bg_fifo_load <= 0;
+		if (bg_fifo_go == 1) pixels_pushed <= pixels_pushed - 1;
+		else PX_valid <= 0;
+
 		case (bg_fetch_mode)
 			TILE_NO_STORE: begin
 				bg_fetch_mode <= ROW_1_LOAD;
@@ -260,24 +262,25 @@ always_ff @(posedge clk) begin
 			end
 			ROW_2_LOAD: begin
 				bg_tile_row[1] <= PPU_DATA_in;
-				bg_fetch_mode <= FIFO_LOAD;
+				bg_fetch_mode <= FIFO_STALL;
 			end
-			FIFO_LOAD: begin
-				PX_valid <= 0;
+			FIFO_STALL: begin
 				if (pixels_pushed == 0) begin
 					bg_fifo_load <= 1;
 					bg_fifo_go <= 0;
 					PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
-					bg_fetch_mode <= TILE_NO_STORE;
+					bg_fetch_mode <= FIFO_PUSH;
 					tile_c <= tile_c + 1;
 					x_pos <= x_pos + 8;
-					pixels_pushed <= 8;
-				end else begin 
-					PX_valid <= 1;
-					bg_fifo_go <= 1;
-					bg_fifo_load <= 0;
-					pixels_pushed <= pixels_pushed - 1;
+					pixels_pushed <= 8; 
 				end
+			end
+			FIFO_PUSH: begin
+				PX_valid <= 1;
+				bg_fifo_go <= 1;
+				bg_fifo_load <= 0;
+				pixels_pushed <= pixels_pushed - 1;
+				bg_fetch_mode <= TILE_NO_STORE;
 			end
 		endcase
 	end
