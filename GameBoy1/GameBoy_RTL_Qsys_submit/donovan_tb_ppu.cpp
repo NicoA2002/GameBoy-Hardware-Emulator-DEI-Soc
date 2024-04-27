@@ -41,7 +41,7 @@ int main(int argc, const char ** argv, const char ** env)
 	dut->ADDR = 0xFF40;
 	dut->MMIO_DATA_out = LCDC;
 
-	dut->PPU_DATA_in = 0;
+	dut->PPU_DATA_in = 0xFF;	// JUNK
 	for (time = 0 ; time < 10000 ; time += 10) {
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
     	if (dut->clk == 1)
