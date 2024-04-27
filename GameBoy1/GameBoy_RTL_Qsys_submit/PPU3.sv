@@ -150,7 +150,7 @@ always_ff @(posedge clk) begin
 	cycles <= cycles + 1;
     if (rst) begin
 			x_pos <= 0;
-			cycles <= 1;
+			cycles <= 0;
 			LY <= 0;
 			PPU_ADDR <= `OAM_BASE_ADDR;
 			PPU_MODE <= SCAN;
