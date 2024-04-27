@@ -145,44 +145,6 @@ begin
     end
 end
 
-/* -- State Switching machine -- */
-always_ff @(posedge clk) begin
-	cycles <= cycles + 1;
-    if (rst) begin
-			x_pos <= 0;
-			cycles <= 1;
-			LY <= 0;
-			PPU_ADDR <= `OAM_BASE_ADDR;
-			PPU_MODE <= SCAN;
-    end else if (LCDC[7]) begin
-		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
-        case (PPU_MODE)
-            SCAN: begin
-		    	// if (PPU_ADDR == `OAM_END_ADDR) begin
-	    		if (cycles == 80) begin
-					PPU_MODE <= DRAW;
-					bg_fetch_mode <= TILE_NO_STORE;
-					x_pos <= 0;
-					PPU_ADDR <= `BG_MAP_1_BASE_ADDR;		// might shit the bed if we have 40 sprites
-		    	end
-				if (LY >= 144)
-					PPU_MODE <= V_BLANK;
-			end
-		    DRAW: 
-		    	if (x_pos > 144) PPU_MODE <= H_BLANK;
-		    H_BLANK: 
-		    	if (cycles >= 455) begin		// we reached the end of the scanline
-					LY <= LY + 1;
-					x_pos <= 0;
-					PPU_MODE <= SCAN;
-					cycles <= 0;
-				end
-		    V_BLANK: 							// not technically necessary but here for completeness
-				PPU_MODE <= H_BLANK;
-        endcase
-    end
-end   
-
 /* 
  * If we detect a memory request we return back the current
  * state of the register
@@ -282,6 +244,43 @@ always_ff @(posedge clk) begin
 	end
 end
   
+/* -- State Switching machine -- */
+always_ff @(posedge clk) begin
+	cycles <= cycles + 1;
+    if (rst) begin
+			x_pos <= 0;
+			cycles <= 1;
+			LY <= 0;
+			PPU_ADDR <= `OAM_BASE_ADDR;
+			PPU_MODE <= SCAN;
+    end else if (LCDC[7]) begin
+		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
+        case (PPU_MODE)
+            SCAN: begin
+		    	// if (PPU_ADDR == `OAM_END_ADDR) begin
+	    		if (cycles == 80) begin
+					PPU_MODE <= DRAW;
+					bg_fetch_mode <= TILE_NO_STORE;
+					x_pos <= 0;
+					PPU_ADDR <= `BG_MAP_1_BASE_ADDR;		// might shit the bed if we have 40 sprites
+		    	end
+				if (LY >= 144)
+					PPU_MODE <= V_BLANK;
+			end
+		    DRAW: 
+		    	if (x_pos > 144) PPU_MODE <= H_BLANK;
+		    H_BLANK: 
+		    	if (cycles >= 455) begin		// we reached the end of the scanline
+					LY <= LY + 1;
+					x_pos <= 0;
+					PPU_MODE <= SCAN;
+					cycles <= 0;
+				end
+		    V_BLANK: 							// not technically necessary but here for completeness
+				PPU_MODE <= H_BLANK;
+        endcase
+    end
+end   
 endmodule
     
 module PPU_SHIFT_REG
