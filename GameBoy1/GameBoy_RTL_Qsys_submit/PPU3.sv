@@ -179,7 +179,7 @@ always_ff @(posedge clk) begin
 		/* -- Following block happens on a per PPU_scanline basis (456 cycles per line) -- */
         case (PPU_MODE)
             PPU_SCAN: begin
-	    		if (cycles == 80) begin
+	    		if (cycles == 80) begin				// could be more exact to use base_addr instead of cycles
 					PPU_MODE <= PPU_DRAW;
 					bg_fetch_mode <= BG_PAUSE;
 					sp_fetch_mode <= SP_SEARCH;
@@ -359,6 +359,10 @@ always_ff @(posedge clk) begin
 		case (px_mix_mode) begin
 			MIX_LOAD: begin
 					pixels_pushed <= pixels_pushed - 1;
+					if (pixels_pushed > 0) begin
+						// do the pixel mixing here
+					end
+
 					if (pixels_pushed == 1 && (sp_fetch_mode == SP_READY) && (bg_fetch_mode == BG_READY)) begin
 						// load both buffers into fifos
 						bg_fifo_load <= 1;
