@@ -282,6 +282,8 @@ always_ff @(posedge clk) begin
 				pixels_pushed <= pixels_pushed - 1;
 				bg_fetch_mode <= TILE_NO_STORE;
 			end
+			default: begin
+			end
 		endcase
 	end
 end
