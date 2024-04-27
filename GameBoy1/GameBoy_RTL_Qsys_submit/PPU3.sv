@@ -248,7 +248,7 @@ always_ff @(posedge clk) begin
 	end
 	if (PPU_MODE == DRAW) begin
 		if (bg_fifo_go == 1) pixels_pushed <= pixels_pushed - 1;
-		else PX_valid <= 0;
+		if (pixels_pushed == 1) PX_valid <= 0;
 
 		case (bg_fetch_mode)
 			TILE_NO_STORE: begin
