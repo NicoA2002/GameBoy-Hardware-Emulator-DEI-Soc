@@ -54,8 +54,8 @@ int main(int argc, const char ** argv, const char ** env)
 		//for map 2 and 8000 addressing method, due to LCDC = FF
 		if (dut->PPU_MODE == DRAW && dut->clk == 1) {
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR) {
-				dut->PPU_DATA_in = tile_toggle;
-				tile_toggle = !tile_toggle;
+				dut->PPU_DATA_in = 5;
+				// tile_toggle = !tile_toggle;
 			}
 			else if (dut->PPU_ADDR >= TILE_BASE && cycles > 81) 
 					dut->PPU_DATA_in = tile_2[row_code];
