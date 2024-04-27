@@ -64,7 +64,7 @@ logic [7:0] sprite_offset_buff [9:0]; 		// stores start of sprite entries in OAM
 
 logic bg_fifo_go;
 logic bg_fifo_load;
-logic [1:0] bg_fetch_mode;
+logic [2:0] bg_fetch_mode;
 logic [7:0] bg_tile_row [1:0];
 logic [3:0] pixels_pushed;
 
