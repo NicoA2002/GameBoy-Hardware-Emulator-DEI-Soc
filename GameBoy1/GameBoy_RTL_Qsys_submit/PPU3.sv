@@ -19,7 +19,7 @@
 
 typedef enum bit [1:0] {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
 typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_FIFO_STALL, BG_FIFO_PUSH, BG_PAUSE} BG_DRAW_STATES_t;
-typedef enum bit [2:0] {SP_TILE_NO_STORE, SP_ROW_1_LOAD, SP_ROW_2_LOAD, SP_FIFO_STALL, SP_FIFO_PUSH, SP_SEARCH} SP_DRAW_STATES_t;
+typedef enum bit [2:0] {SP_SEARCH, SP_ROW_1_LOAD, SP_ROW_2_LOAD, SP_FIFO_STALL, SP_FIFO_PUSH} SP_DRAW_STATES_t;
 
 module PPU3
 (
@@ -48,6 +48,7 @@ module PPU3
     output logic PX_valid
 );
 
+/* variables should be organized at some point!! */
 logic [15:0] BIG_DATA_in, BIG_LY, BIG_X;
 logic [15:0] tile_c;
 
@@ -74,6 +75,8 @@ logic [2:0] bg_fetch_mode;
 logic [7:0] bg_tile_row [1:0];
 logic [7:0] sp_tile_row [1:0];
 logic [3:0] pixels_pushed;
+
+logic [3:0] sp_ind;
 
 logic [1:0] bg_out;
 logic [1:0] sp_out;
@@ -253,6 +256,18 @@ assign BIG_DATA_in = {8'b0,PPU_DATA_in};
 assign BIG_LY = {13'b0, LY[2:0]};
 assign BIG_X = {8'b0,x_pos};
 
+/*
+ * READ ME BEFORE MODIFYING
+ *
+ * Currently everything is set up for the BG to draw but will need to be modified according too
+ * 1. Find a sprite between x_pos and x_pos + 8 => load it into sprite_fifo
+ * 2. Proceed through bg machine to load up fifo => load it into bg_fifo
+ * 3. Create new machine that performs pixel mixing and flushing
+ * 4. 		have the process restart for next tile while waiting for fifo to flush completely
+
+ * after this we'll need to add interrupts, LCDC flags and alternate mode support then the PPU should be done
+ */
+
 /* BG Draw Machine */
 always_ff @(posedge clk) begin
 	if (rst) begin
@@ -311,11 +326,12 @@ end
 /* SP Draw Machine */
 always_ff @(posedge clk) begin
 	if (rst) begin
-		pixels_pushed <= 1;
-		tile_c <= 1;
+		sp_ind <= 0;
 	end
 	if (PPU_MODE == DRAW) begin		// most likely will have to be modified for pixel-mixing
-		case (bg_fetch_mode)
+		case (sp_fetch_mode)
+			SP_SEARCH: begin
+			end
 			// sprite will first have to find out if its in this tile
 			// then sprite should be loaded into the sprite_fifo buffer
 			// it should then also stall until it is ready to be flushed out
