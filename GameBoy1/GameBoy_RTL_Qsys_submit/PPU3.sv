@@ -17,6 +17,9 @@
 
 `define PPU_ADDR_INC(x) PPU_ADDR <= PPU_ADDR + x;
 
+typedef enum bit [1:0] {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
+typedef enum bit [2:0] {TILE_NO_STORE, ROW_1_LOAD, ROW_2_LOAD, FIFO_STALL, FIFO_PUSH} DRAW_STATES_t;
+
 module PPU3
 (
     input logic clk,
@@ -66,9 +69,6 @@ logic [7:0] bg_tile_row [1:0];
 logic [3:0] pixels_pushed;
 
 PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(PX_OUT));
-
-typedef enum bit [1:0] {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
-typedef enum bit [1:0] {TILE_NO_STORE, ROW_1_LOAD, ROW_2_LOAD, FIFO_STALL, FIFO_PUSH} DRAW_STATES_t;
 
 /* External registers */
 logic [7:0] LCDC, STAT, SCX, SCY, LYC, DMA, BGP, OBP0, OBP1, WX, WY; // Register alias
