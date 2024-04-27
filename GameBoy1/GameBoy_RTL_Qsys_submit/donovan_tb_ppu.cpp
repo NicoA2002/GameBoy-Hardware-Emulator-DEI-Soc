@@ -12,11 +12,11 @@ typedef enum {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
 
 int main(int argc, const char ** argv, const char ** env) 
 {
-	int time, offset, exit_code, row_code, cycles, last_px_val, tile_toggle;
+	int time, offset, exit_code, row_code, cycles, tile_toggle;
 	char LCDC, tile_1[2], tile_2[2];
 	VPPU3 *dut;
 	
-	tile_toggle = last_px_val, cycles = row_code = offset = exit_code = 0;
+	tile_toggle = cycles = row_code = offset = exit_code = 0;
 
 	tile_1[0] = 0xFF;	// 1111_1111
 	tile_1[1] = 0x00;	// 0000_0000
@@ -53,10 +53,8 @@ int main(int argc, const char ** argv, const char ** env)
 
 		//for map 2 and 8000 addressing method, due to LCDC = FF
 		if (dut->PPU_MODE == DRAW && dut->clk == 1) {
-			if (last_px_val != dut->PX_valid) {
+			if (dut->PX_valid == 1)
 				tile_toggle = !tile_toggle;
-				last_px_val = dut->PX_valid;
-			}
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR)
 				dut->PPU_DATA_in = tile_toggle;
 			else if (dut->PPU_ADDR >= TILE_BASE && cycles > 81) 
