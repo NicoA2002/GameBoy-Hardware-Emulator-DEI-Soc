@@ -262,7 +262,7 @@ always_ff @(posedge clk) begin
 					PPU_MODE <= DRAW;
 					bg_fetch_mode <= TILE_NO_STORE;
 					x_pos <= 0;
-					PPU_ADDR <= `BG_MAP_1_BASE_ADDR;		// might shit the bed if we have 40 sprites
+					PPU_ADDR <= 12;		// might shit the bed if we have 40 sprites
 		    	end
 				if (LY >= 144)
 					PPU_MODE <= V_BLANK;
