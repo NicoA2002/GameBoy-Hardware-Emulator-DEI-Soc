@@ -253,7 +253,7 @@ always_ff @(posedge clk) begin
 		case (bg_fetch_mode)
 			TILE_NO_STORE: begin
 				bg_fetch_mode <= ROW_1_LOAD;
-				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);	// tile_base + (16 * tile_no) + 2 * (LY % 8)
+				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 3);	// tile_base + (16 * tile_no) + 2 * (LY % 8)
 			end
 			ROW_1_LOAD: begin
 				bg_tile_row[0] <= PPU_DATA_in;
