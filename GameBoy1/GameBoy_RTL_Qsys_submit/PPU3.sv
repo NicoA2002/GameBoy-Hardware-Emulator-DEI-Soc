@@ -272,12 +272,12 @@ always_ff @(posedge clk) begin
 					bg_fetch_mode <= FIFO_PUSH;
 					tile_c <= tile_c + 1;
 					x_pos <= x_pos + 8;
-					pixels_pushed <= 8; 
 				end
 			end
 			FIFO_PUSH: begin
 				PX_valid <= 1;
 				bg_fifo_go <= 1;
+				pixels_pushed <= 8; 
 				bg_fifo_load <= 0;
 				pixels_pushed <= pixels_pushed - 1;
 				bg_fetch_mode <= TILE_NO_STORE;
