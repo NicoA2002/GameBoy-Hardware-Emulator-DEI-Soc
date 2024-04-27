@@ -58,7 +58,7 @@ int main(int argc, const char ** argv, const char ** env)
 				last_px_val = dut->PX_valid;
 			}
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR)
-				dut->PPU_DATA_in = 5;
+				dut->PPU_DATA_in = tile_toggle;
 			else if (dut->PPU_ADDR >= TILE_BASE && cycles > 81) 
 					dut->PPU_DATA_in = tile_2[row_code];
 					row_code = !row_code;
