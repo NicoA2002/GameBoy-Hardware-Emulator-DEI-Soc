@@ -243,7 +243,7 @@ assign BIG_X = {8'b0,x_pos};
 /* BG Draw Machine */
 always_ff @(posedge clk) begin
 	if (rst) begin
-		pixels_pushed <= 0;
+		pixels_pushed <= 1;
 		tile_c <= 1;
 	end
 	if (PPU_MODE == DRAW) begin
