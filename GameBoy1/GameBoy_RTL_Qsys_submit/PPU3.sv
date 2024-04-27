@@ -6,7 +6,7 @@
 
 
 `define OAM_BASE_ADDR 16'hFE00
-`define OAM_END_ADDR 16'hFE9F
+`define OAM_END_ADDR 16'hFEA0
 
 `define BG_MAP_1_BASE_ADDR 16'h9800
 `define BG_MAP_1_END_ADDR 16'h9BFF
