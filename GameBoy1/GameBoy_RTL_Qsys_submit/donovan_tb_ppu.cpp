@@ -59,7 +59,7 @@ int main(int argc, const char ** argv, const char ** env)
 					dut->PPU_DATA_in = tile_2[row_code];
 					row_code = !row_code;
 		}
-		if (cycles % 10 == 0)
+		if (cycles % 5 == 0)
 			tile_toggle != !tile_toggle;
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
