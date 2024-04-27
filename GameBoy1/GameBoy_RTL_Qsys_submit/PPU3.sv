@@ -147,18 +147,18 @@ end
 
 /* -- State Switching machine -- */
 always_ff @(posedge clk) begin
+	cycles <= cycles + 1;
     if (rst) begin
 			x_pos <= 0;
-			cycles <= 0;
+			cycles <= 1;
 			LY <= 0;
 			PPU_ADDR <= `OAM_BASE_ADDR;
 			PPU_MODE <= SCAN;
     end else if (LCDC[7]) begin
-    	cycles <= cycles + 1;
 		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
         case (PPU_MODE)
             SCAN: begin
-		    	if (PPU_ADDR >= `OAM_END_ADDR) begin
+		    	if (PPU_ADDR == `OAM_END_ADDR) begin
 					PPU_MODE <= DRAW;
 					bg_fetch_mode <= TILE_NO_STORE;
 					x_pos <= 0;
