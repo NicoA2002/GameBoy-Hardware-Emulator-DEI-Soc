@@ -247,6 +247,7 @@ always_ff @(posedge clk) begin
 		tile_c <= 1;
 	end
 	if (PPU_MODE == DRAW) begin
+		bg_fifo_load <= 0;
 		case (bg_fetch_mode)
 			TILE_NO_STORE: begin
 				bg_fetch_mode <= ROW_1_LOAD;
