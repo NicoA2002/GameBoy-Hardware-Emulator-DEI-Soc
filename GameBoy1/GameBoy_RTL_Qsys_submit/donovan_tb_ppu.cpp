@@ -52,12 +52,8 @@ int main(int argc, const char ** argv, const char ** env)
 				dut->PPU_DATA_in = (tile_c++ % 2) ? 0 : 1;
 
 			if (dut->PPU_ADDR >= TILE_BASE) {
-				if (tile_c % 2)
-					dut->PPU_DATA_in = tile_row_1[row_code];
-				else
-					dut->PPU_DATA_in = tile_row_2[row_code];
+					dut->PPU_DATA_in = tile_1[row_code];
 				row_code = !row_code;
-
 			}
 		}
     	dut->eval();     			// Run the simulation for a cycle

@@ -254,7 +254,7 @@ always_ff @(posedge clk) begin
 			ROW_1_LOAD: begin
 				bg_tile_row[0] <= PPU_DATA_in;
 				bg_fetch_mode <= ROW_2_LOAD;
-				PPU_ADDR <= PPU_ADDR + 1;
+				PPU_ADDR_INC(1);
 			end
 			ROW_2_LOAD: begin
 				bg_tile_row[1] <= PPU_DATA_in;
@@ -265,7 +265,7 @@ always_ff @(posedge clk) begin
 				if (pixels_pushed == 0) begin
 					bg_fifo_load <= 1;
 					bg_fifo_go <= 0;
-					PPU_ADDR <= (`BG_MAP_1_BASE_ADDR + tile_c);
+					PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
 					bg_fetch_mode <= TILE_NO_STORE;
 					tile_c <= tile_c + 1;
 					x_pos <= x_pos + 8;
