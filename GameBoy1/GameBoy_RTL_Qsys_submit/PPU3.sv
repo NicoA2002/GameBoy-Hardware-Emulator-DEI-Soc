@@ -158,7 +158,8 @@ always_ff @(posedge clk) begin
 		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
         case (PPU_MODE)
             SCAN: begin
-		    	if (PPU_ADDR == `OAM_END_ADDR) begin
+		    	// if (PPU_ADDR == `OAM_END_ADDR) begin
+	    		if (cycles == 80) begin
 					PPU_MODE <= DRAW;
 					bg_fetch_mode <= TILE_NO_STORE;
 					x_pos <= 0;
