@@ -51,7 +51,6 @@ int main(int argc, const char ** argv, const char ** env)
     	if (dut->rst == 1)
     		cycles = 0;
 
-		//for map 2 and 8000 addressing method, due to LCDC = FF
 		if (dut->PPU_MODE == DRAW && dut->clk == 1) {
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR)
 				dut->PPU_DATA_in = tile_toggle;

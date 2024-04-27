@@ -279,7 +279,6 @@ always_ff @(posedge clk) begin
 				bg_fifo_go <= 1;
 				pixels_pushed <= 8; 
 				bg_fifo_load <= 0;
-				// pixels_pushed <= pixels_pushed - 1;
 				bg_fetch_mode <= TILE_NO_STORE;
 			end
 			default: begin
