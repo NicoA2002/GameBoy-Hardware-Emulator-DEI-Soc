@@ -49,13 +49,14 @@ int main(int argc, const char ** argv, const char ** env)
     	dut->rst = (time == 30) ? 1 : 0;			// pulses rst 
     	if (dut->rst == 1)
     		cycles = 0;
+
 		dut->PPU_DATA_in = 0;
 		//for map 2 and 8000 addressing method, due to LCDC = FF
 		if (dut->PPU_MODE == DRAW) {
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR)
 				dut->PPU_DATA_in = (tile_c++ % 2) ? 0 : 1;
 
-			if (dut->PPU_ADDR >= TILE_BASE) 
+			if (dut->PPU_ADDR >= TILE_BASE && cycles > 80) 
 					dut->PPU_DATA_in = tile_2[row_code];
 					row_code = !row_code;
 		}
