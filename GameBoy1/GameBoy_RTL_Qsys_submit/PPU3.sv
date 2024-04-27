@@ -145,6 +145,44 @@ begin
     end
 end
 
+/* -- State Switching machine -- */
+always_ff @(posedge clk) begin
+	cycles <= cycles + 1;
+    if (rst) begin
+			x_pos <= 0;
+			cycles <= 1;
+			LY <= 0;
+			PPU_ADDR <= `OAM_BASE_ADDR;
+			PPU_MODE <= SCAN;
+    end else if (LCDC[7]) begin
+		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
+        case (PPU_MODE)
+            SCAN: begin
+		    	// if (PPU_ADDR == `OAM_END_ADDR) begin
+	    		if (cycles == 80) begin
+					PPU_MODE <= DRAW;
+					bg_fetch_mode <= TILE_NO_STORE;
+					x_pos <= 0;
+					PPU_ADDR <= `BG_MAP_1_BASE_ADDR;		// might shit the bed if we have 40 sprites
+		    	end
+				if (LY >= 144)
+					PPU_MODE <= V_BLANK;
+			end
+		    DRAW: 
+		    	if (x_pos > 144) PPU_MODE <= H_BLANK;
+		    H_BLANK: 
+		    	if (cycles >= 455) begin		// we reached the end of the scanline
+					LY <= LY + 1;
+					x_pos <= 0;
+					PPU_MODE <= SCAN;
+					cycles <= 0;
+				end
+		    V_BLANK: 							// not technically necessary but here for completeness
+				PPU_MODE <= H_BLANK;
+        endcase
+    end
+end   
+
 /* 
  * If we detect a memory request we return back the current
  * state of the register
@@ -186,7 +224,7 @@ always_ff @(posedge clk) begin
 				sprite_offset_buff[sprites_loaded] <= current_offset[7:0];
 				sprite_found <= 1;
 				`PPU_ADDR_INC(1);							// jumps to x-byte
-			end else `PPU_ADDR_INC(4);						// jumps to next sprite in OAM
+			end else if (cycles != 80) `PPU_ADDR_INC(4);						// jumps to next sprite in OAM
 		end else begin
 			if (sprite_found) begin
 				sprite_x_buff[sprites_loaded - 1] <= PPU_DATA_in;
@@ -244,44 +282,6 @@ always_ff @(posedge clk) begin
 	end
 end
   
-/* -- State Switching machine -- */
-always_ff @(posedge clk) begin
-	cycles <= cycles + 1;
-    if (rst) begin
-			x_pos <= 0;
-			cycles <= 1;
-			LY <= 0;
-			PPU_ADDR <= `OAM_BASE_ADDR;
-			PPU_MODE <= SCAN;
-    end else if (LCDC[7]) begin
-		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
-        case (PPU_MODE)
-            SCAN: begin
-		    	// if (PPU_ADDR == `OAM_END_ADDR) begin
-	    		if (cycles == 80) begin
-					PPU_MODE <= DRAW;
-					bg_fetch_mode <= TILE_NO_STORE;
-					x_pos <= 0;
-					PPU_ADDR <= 12;		// might shit the bed if we have 40 sprites
-		    	end
-				if (LY >= 144)
-					PPU_MODE <= V_BLANK;
-			end
-		    DRAW: 
-		    	if (x_pos > 144) PPU_MODE <= H_BLANK;
-		    H_BLANK: 
-		    	if (cycles >= 455) begin		// we reached the end of the scanline
-					LY <= LY + 1;
-					x_pos <= 0;
-					PPU_MODE <= SCAN;
-					cycles <= 0;
-				end
-		    V_BLANK: 							// not technically necessary but here for completeness
-				PPU_MODE <= H_BLANK;
-        endcase
-    end
-end   
-
 endmodule
     
 module PPU_SHIFT_REG
