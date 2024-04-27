@@ -51,10 +51,8 @@ int main(int argc, const char ** argv, const char ** env)
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR)
 				dut->PPU_DATA_in = (tile_c++ % 2) ? 0 : 1;
 
-			if (dut->PPU_ADDR >= TILE_BASE) {
-					dut->PPU_DATA_in = tile_1[row_code];
-				row_code = !row_code;
-			}
+			if (dut->PPU_ADDR >= TILE_BASE) 
+					dut->PPU_DATA_in = tile_2[row_code];
 		}
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle

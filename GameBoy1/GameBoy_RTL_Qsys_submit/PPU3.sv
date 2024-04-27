@@ -254,7 +254,7 @@ always_ff @(posedge clk) begin
 			ROW_1_LOAD: begin
 				bg_tile_row[0] <= PPU_DATA_in;
 				bg_fetch_mode <= ROW_2_LOAD;
-				PPU_ADDR_INC(1);
+				`PPU_ADDR_INC(1);
 			end
 			ROW_2_LOAD: begin
 				bg_tile_row[1] <= PPU_DATA_in;
