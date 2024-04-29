@@ -22,7 +22,7 @@ int main(int argc, const char ** argv, const char ** env)
 		exit_code = -1;
 		return exit_code;
 	}
-	f << "P2\n8 8\n255\n";
+	f << "P2\n160 8\n144\n";
 
 	tile_toggle = cycles = row_code = offset = exit_code = 0;
 	last_px_state = 0;
