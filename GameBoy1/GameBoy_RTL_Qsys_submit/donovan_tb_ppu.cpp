@@ -51,7 +51,7 @@ int main(int argc, const char ** argv, const char ** env)
 
 	dut->PPU_DATA_in = 0xFF;	// JUNK
 	// for (time = 0 ; time < 10000 ; time += 10) {
-	for (time = 0 ; time < 136800 ; time += 10) {
+	for (time = 0 ; time < 800 ; time += 10) {
 		last_px_state = dut->PX_valid;
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
 		if (dut->PPU_MODE == H_BLANK)
@@ -70,11 +70,17 @@ int main(int argc, const char ** argv, const char ** env)
 					dut->PPU_DATA_in = tile_2[row_code];
 					row_code = !row_code;
 		}
-    	if (dut->PX_valid == 1 && dut->clk == 1)
-    		f << (int) dut->PX_OUT << " ";
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
 
+    	// if (dut->PX_valid == 1 && dut->clk == 1)
+    	// 	f << (int) dut->PX_OUT << " ";
+
+    	if (dut->clk == 1 && cycles > 81)
+    		std::cout << PX_valid << std::endl;
+
+    	if (cycles > 100)
+    		break;
     	// if (last_px_state == 0x00 && dut->PX_valid == 1)	// posedge of PX_valid
     	// 	tile_toggle = !tile_toggle;
     }
