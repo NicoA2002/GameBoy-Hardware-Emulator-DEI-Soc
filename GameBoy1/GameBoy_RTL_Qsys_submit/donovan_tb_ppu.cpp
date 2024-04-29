@@ -79,8 +79,8 @@ int main(int argc, const char ** argv, const char ** env)
     	// if (last_px_state == 0x00 && dut->PX_valid == 1)	// posedge of PX_valid
     	// 	tile_toggle = !tile_toggle;
 
-    	if (dut->PX_valid) {
-    		f << dut->PX_OUT << " ";
+    	if (dut->PX_valid && dut->clk == 1) {
+    		f << (int) dut->PX_OUT << " ";
     	}
     }
 
