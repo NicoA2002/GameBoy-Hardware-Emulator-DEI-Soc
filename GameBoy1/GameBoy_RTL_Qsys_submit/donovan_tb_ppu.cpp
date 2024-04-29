@@ -23,7 +23,7 @@ int main(int argc, const char ** argv, const char ** env)
 		exit_code = -1;
 		return exit_code;
 	}
-	f << "P2\n160 144\n255\n";
+	f << "P2\n160 144\n4\n";
 
 	tile_toggle = cycles = row_code = offset = exit_code = 0;
 	last_px_state = 0;
@@ -80,7 +80,7 @@ int main(int argc, const char ** argv, const char ** env)
     	// 	tile_toggle = !tile_toggle;
 
     	if (dut->PX_valid) {
-    		f << (dut->PX_OUT << 4) << " ";
+    		f << dut->PX_OUT << " ";
     	}
     }
 
