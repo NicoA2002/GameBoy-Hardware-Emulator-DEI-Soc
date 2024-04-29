@@ -67,10 +67,7 @@ int main(int argc, const char ** argv, const char ** env)
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR)
 				dut->PPU_DATA_in = tile_toggle;
 			else if (dut->PPU_ADDR >= TILE_BASE && cycles > 81) 
-					// if (tile_toggle)
 					dut->PPU_DATA_in = tile_2[row_code];
-					// else
-					// 	dut->PPU_DATA_in = tile_1[row_code];
 					row_code = !row_code;
 		}
     	dut->eval();     			// Run the simulation for a cycle
@@ -79,7 +76,7 @@ int main(int argc, const char ** argv, const char ** env)
     	// if (last_px_state == 0x00 && dut->PX_valid == 1)	// posedge of PX_valid
     	// 	tile_toggle = !tile_toggle;
 
-    	if (dut->PX_valid && dut->clk == 1) {
+    	if (dut->PX_valid == 1 && dut->clk == 1) {
     		f << (int) dut->PX_OUT << " ";
     	}
     }
