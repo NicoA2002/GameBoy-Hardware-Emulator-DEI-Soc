@@ -23,8 +23,7 @@ int main(int argc, const char ** argv, const char ** env)
 		exit_code = -1;
 		return exit_code;
 	}
-	std::cout << "HELPS" << std::endl;
-	f << "P2\n160 8\n144\n";
+	f << "P2\n160 144\n255\n";
 
 	tile_toggle = cycles = row_code = offset = exit_code = 0;
 	last_px_state = 0;
@@ -51,7 +50,8 @@ int main(int argc, const char ** argv, const char ** env)
 	dut->MMIO_DATA_out = LCDC;
 
 	dut->PPU_DATA_in = 0xFF;	// JUNK
-	for (time = 0 ; time < 10000 ; time += 10) {
+	// for (time = 0 ; time < 10000 ; time += 10) {
+	for (time = 0 ; time < 136800 ; time += 10) {
 		last_px_state = dut->PX_valid;
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
 		if (dut->PPU_MODE == H_BLANK)
@@ -80,7 +80,7 @@ int main(int argc, const char ** argv, const char ** env)
     		tile_toggle = !tile_toggle;
 
     	if (dut->PX_valid) {
-    		f << dut->PX_OUT << " ";
+    		f << (dut->PX_OUT << 4) << " ";
     	}
     }
 
