@@ -74,8 +74,10 @@ int main(int argc, const char ** argv, const char ** env)
     	tfp->dump(time); 			// Write the VCD file for this cycle
 
     	if (dut->clk == 1 && cycles > 81)
-    		if ((int)dut->PX_valid == 1)
+    		if ((int)dut->PX_valid == 1) {
     			f << (int) dut->PX_OUT << " ";
+    			std::cout << (int) dut->PX_valid << " " << (int) dut->PX_OUT << std::endl;
+    		}
 
     	if (cycles > 100)
     		break;
