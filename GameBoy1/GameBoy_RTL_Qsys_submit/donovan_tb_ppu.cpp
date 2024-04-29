@@ -23,6 +23,7 @@ int main(int argc, const char ** argv, const char ** env)
 		exit_code = -1;
 		return exit_code;
 	}
+	std::cout << "HELPS" << std::endl;
 	f << "P2\n160 8\n144\n";
 
 	tile_toggle = cycles = row_code = offset = exit_code = 0;
