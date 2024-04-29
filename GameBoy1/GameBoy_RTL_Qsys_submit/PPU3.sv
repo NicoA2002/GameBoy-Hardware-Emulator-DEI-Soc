@@ -6,7 +6,7 @@
 
 
 `define OAM_BASE_ADDR 16'hFE00
-`define OAM_END_ADDR 16'hFE9F
+`define OAM_END_ADDR 16'hFEA0
 
 `define BG_MAP_1_BASE_ADDR 16'h9800
 `define BG_MAP_1_END_ADDR 16'h9BFF
@@ -16,6 +16,9 @@
 `define NO_BOOT 0
 
 `define PPU_ADDR_INC(x) PPU_ADDR <= PPU_ADDR + x;
+
+typedef enum bit [1:0] {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
+typedef enum bit [2:0] {TILE_NO_STORE, ROW_1_LOAD, ROW_2_LOAD, FIFO_STALL, FIFO_PUSH} DRAW_STATES_t;
 
 module PPU3
 (
@@ -61,14 +64,11 @@ logic [7:0] sprite_offset_buff [9:0]; 		// stores start of sprite entries in OAM
 
 logic bg_fifo_go;
 logic bg_fifo_load;
-logic [1:0] bg_fetch_mode;
+logic [2:0] bg_fetch_mode;
 logic [7:0] bg_tile_row [1:0];
-logic [2:0] pixels_pushed;
+logic [3:0] pixels_pushed;
 
 PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(PX_OUT));
-
-typedef enum bit [1:0] {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
-typedef enum bit [1:0] {TILE_NO_STORE, ROW_1_LOAD, ROW_2_LOAD, FIFO_LOAD} DRAW_STATES_t;
 
 /* External registers */
 logic [7:0] LCDC, STAT, SCX, SCY, LYC, DMA, BGP, OBP0, OBP1, WX, WY; // Register alias
@@ -147,18 +147,19 @@ end
 
 /* -- State Switching machine -- */
 always_ff @(posedge clk) begin
+	cycles <= cycles + 1;
     if (rst) begin
 			x_pos <= 0;
-			cycles <= 1;
+			cycles <= 0;
 			LY <= 0;
 			PPU_ADDR <= `OAM_BASE_ADDR;
 			PPU_MODE <= SCAN;
     end else if (LCDC[7]) begin
-    	cycles <= cycles + 1;
 		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
         case (PPU_MODE)
             SCAN: begin
-		    	if (PPU_ADDR > `OAM_END_ADDR) begin
+		    	// if (PPU_ADDR == `OAM_END_ADDR) begin
+	    		if (cycles == 80) begin
 					PPU_MODE <= DRAW;
 					bg_fetch_mode <= TILE_NO_STORE;
 					x_pos <= 0;
@@ -223,7 +224,7 @@ always_ff @(posedge clk) begin
 				sprite_offset_buff[sprites_loaded] <= current_offset[7:0];
 				sprite_found <= 1;
 				`PPU_ADDR_INC(1);							// jumps to x-byte
-			end else `PPU_ADDR_INC(4);						// jumps to next sprite in OAM
+			end else if (cycles != 80) `PPU_ADDR_INC(4);						// jumps to next sprite in OAM
 		end else begin
 			if (sprite_found) begin
 				sprite_x_buff[sprites_loaded - 1] <= PPU_DATA_in;
@@ -242,10 +243,13 @@ assign BIG_X = {8'b0,x_pos};
 /* BG Draw Machine */
 always_ff @(posedge clk) begin
 	if (rst) begin
-		pixels_pushed <= 0;
+		pixels_pushed <= 1;
 		tile_c <= 1;
 	end
 	if (PPU_MODE == DRAW) begin
+		if (bg_fifo_go == 1) pixels_pushed <= pixels_pushed - 1;
+		if (pixels_pushed == 1) PX_valid <= 0;
+
 		case (bg_fetch_mode)
 			TILE_NO_STORE: begin
 				bg_fetch_mode <= ROW_1_LOAD;
@@ -254,28 +258,30 @@ always_ff @(posedge clk) begin
 			ROW_1_LOAD: begin
 				bg_tile_row[0] <= PPU_DATA_in;
 				bg_fetch_mode <= ROW_2_LOAD;
-				PPU_ADDR <= PPU_ADDR + 1;
+				`PPU_ADDR_INC(1);
 			end
 			ROW_2_LOAD: begin
 				bg_tile_row[1] <= PPU_DATA_in;
-				bg_fetch_mode <= FIFO_LOAD;
+				bg_fetch_mode <= FIFO_STALL;
 			end
-			FIFO_LOAD: begin
-				PX_valid <= 0;
-				if (pixels_pushed == 0) begin
+			FIFO_STALL: begin
+				if (pixels_pushed == 1) begin
 					bg_fifo_load <= 1;
 					bg_fifo_go <= 0;
-					PPU_ADDR <= (`BG_MAP_1_BASE_ADDR + tile_c);
-					bg_fetch_mode <= TILE_NO_STORE;
+					PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
+					bg_fetch_mode <= FIFO_PUSH;
 					tile_c <= tile_c + 1;
 					x_pos <= x_pos + 8;
-					pixels_pushed <= 8;
-				end else begin 
-					PX_valid <= 1;
-					bg_fifo_go <= 1;
-					bg_fifo_load <= 0;
-					pixels_pushed <= pixels_pushed - 1;
 				end
+			end
+			FIFO_PUSH: begin
+				PX_valid <= 1;
+				bg_fifo_go <= 1;
+				pixels_pushed <= 8; 
+				bg_fifo_load <= 0;
+				bg_fetch_mode <= TILE_NO_STORE;
+			end
+			default: begin
 			end
 		endcase
 	end

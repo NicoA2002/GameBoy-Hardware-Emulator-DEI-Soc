@@ -1,11 +1,16 @@
 #include <iostream>
+#include <fstream>
 #include "VPPU3.h"
 #include <verilated.h>
 #include <verilated_vcd_c.h>
 #include <cstdio>
 
-void writePPM(const char* filename, int width, int height, const unsigned char* pixels) {
-    std::ofstream file(filename, std::ios::out | std::ios::binary);
+void writePPM(const char* filename, int width, int height, const unsigned char* pixels) 
+{
+    unsigned char r, g, b;
+    std::ofstream file;
+   
+    file.open(filename);
     if (!file) {
         std::cerr << "Error: Unable to open file for writing." << std::endl;
         return;
@@ -16,9 +21,9 @@ void writePPM(const char* filename, int width, int height, const unsigned char* 
 
     // Write pixel data
     for (int i = 0; i < width * height; ++i) {
-        unsigned char r = pixels[i] * 85;
-        unsigned char g = pixels[i] * 85;
-        unsigned char b = pixels[i] * 85;
+        r = pixels[i] * 85;
+        g = pixels[i] * 85;
+        b = pixels[i] * 85;
         file.put(r);
         file.put(g);
         file.put(b);
