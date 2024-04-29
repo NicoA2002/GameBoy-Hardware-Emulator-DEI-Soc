@@ -1,7 +1,8 @@
 #include <iostream>
-#include "VPPU3.h"
+#include <fstream>
 #include <verilated.h>
 #include <verilated_vcd_c.h>
+#include "VPPU3.h"
 
 typedef enum {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
 
