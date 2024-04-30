@@ -81,10 +81,8 @@ int main(int argc, const char ** argv, const char ** env)
     			std::cout << (int) dut->PX_valid << " " << (int) dut->PX_OUT << std::endl;
     		}
 
-    	if (cycles > 100)
-    		break;
-    	// if (last_px_state == 0x00 && dut->PX_valid == 1)	// posedge of PX_valid
-    	// 	tile_toggle = !tile_toggle;
+    	// if (cycles > 100)
+    	// 	break;
     }
 
 	tfp->close(); // Stop dumping the VCD file
