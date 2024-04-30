@@ -169,7 +169,10 @@ always_ff @(posedge clk) begin
 					PPU_MODE <= V_BLANK;
 			end
 		    DRAW: 
-		    	if (x_pos > 144) PPU_MODE <= H_BLANK;
+		    	if (x_pos > 144) begin
+		    		PPU_MODE <= H_BLANK;
+		    		PX_valid <= 0;
+		    	end
 		    H_BLANK: 
 		    	if (cycles >= 455) begin		// we reached the end of the scanline
 					LY <= LY + 1;
