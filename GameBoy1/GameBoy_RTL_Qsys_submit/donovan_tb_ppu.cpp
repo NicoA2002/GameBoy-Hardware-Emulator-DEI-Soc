@@ -50,7 +50,6 @@ int main(int argc, const char ** argv, const char ** env)
 	dut->MMIO_DATA_out = LCDC;
 
 	dut->PPU_DATA_in = 0xFF;	// JUNK
-	// for (time = 0 ; time < 10000 ; time += 10) {
 	for (time = 0 ; time < 1368000 ; time += 10) {
 		last_px_state = dut->PX_valid;
 		last_clk = dut->clk;
@@ -70,16 +69,11 @@ int main(int argc, const char ** argv, const char ** env)
 				load = 0;
 			}
 			else if (dut->PPU_ADDR >= TILE_BASE && cycles > 81) 
-					if (load == 0)
+					if (load == 0) {
 						dut->PPU_DATA_in = tile_2[0];
-					else if (load == 1)
+						load++;
+					} else
 						dut->PPU_DATA_in = tile_2[1];
-
-					load++;
-					// row_code = !row_code;
-
-					// if (dut->PX_valid == 0 && first_iter)
-					// 	row_code = !row_code;
 		}
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
@@ -87,14 +81,9 @@ int main(int argc, const char ** argv, const char ** env)
     	if (dut->clk != last_clk && dut->clk == 1) {	// on posedge of clock
     		if ((int)dut->PX_valid == 1) {
     			f << (int) dut->PX_OUT << " ";
-    			std::cout << (int) dut->PX_valid << " " << (int) dut->PX_OUT << std::endl;
+    			// std::cout << (int) dut->PX_valid << " " << (int) dut->PX_OUT << std::endl;
     		}
     	}
-    	// if (dut->PX_valid == 1)
-    	// 	first_iter = 1;
-
-    	// if (cycles > 100)
-    	// 	break;
     }
 
 	tfp->close(); // Stop dumping the VCD file
