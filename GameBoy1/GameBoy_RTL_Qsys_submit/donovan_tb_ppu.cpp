@@ -53,6 +53,7 @@ int main(int argc, const char ** argv, const char ** env)
 	// for (time = 0 ; time < 10000 ; time += 10) {
 	for (time = 0 ; time < 1368000 ; time += 10) {
 		last_px_state = dut->PX_valid;
+		last_clk = dut->clk;
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
 		if (dut->PPU_MODE == H_BLANK)
 			cycles = 0;
@@ -73,7 +74,6 @@ int main(int argc, const char ** argv, const char ** env)
 					// if (dut->PX_valid == 0 && first_iter)
 					// 	row_code = !row_code;
 		}
-		last_clk = dut->clk;
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
 
