@@ -13,7 +13,7 @@ typedef enum {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
 
 int main(int argc, const char ** argv, const char ** env) 
 {
-	int time, offset, exit_code, row_code, cycles, tile_toggle;
+	int time, offset, exit_code, row_code, cycles, tile_toggle, first_iter;
 	char LCDC, last_px_state, tile_1[2], tile_2[2];
 	VPPU3 *dut;
 	std::ofstream f("tb_gen.ppm");
@@ -25,7 +25,7 @@ int main(int argc, const char ** argv, const char ** env)
 	}
 	f << "P2\n160 144\n4\n";
 
-	tile_toggle = cycles = row_code = offset = exit_code = 0;
+	first_iter = tile_toggle = cycles = row_code = offset = exit_code = 0;
 	last_px_state = 0;
 
 	tile_1[0] = 0xFF;	// 1111_1111
@@ -70,8 +70,9 @@ int main(int argc, const char ** argv, const char ** env)
 					dut->PPU_DATA_in = tile_2[row_code];
 					row_code = !row_code;
 
-					// if (dut->PX_valid == 0)
-					// 	row_code = !row_code;
+					if (dut->PX_valid == 0 && first_iter)
+						row_code = !row_code;
+					first_iter = 1;
 		}
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
