@@ -180,10 +180,8 @@ always_ff @(posedge clk) begin
 					PPU_MODE <= SCAN;
 					cycles <= 0;
 				end
-		    V_BLANK: begin							// not technically necessary but here for completeness
+		    V_BLANK: 							// not technically necessary but here for completeness
 				PPU_MODE <= H_BLANK;
-				PX_valid <= 0;
-			end
         endcase
     end
 end   
@@ -280,7 +278,8 @@ always_ff @(posedge clk) begin
 				end
 			end
 			FIFO_PUSH: begin
-				PX_valid <= 1;
+				if (x_pos <= 144)
+					PX_valid <= 1;
 				bg_fifo_go <= 1;
 				pixels_pushed <= 8; 
 				bg_fifo_load <= 0;
