@@ -13,7 +13,7 @@ typedef enum {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
 
 int main(int argc, const char ** argv, const char ** env) 
 {
-	int time, offset, exit_code, row_code, cycles, tile_toggle, first_iter;
+	int time, offset, exit_code, row_code, cycles, tile_toggle, last_clk;
 	char LCDC, last_px_state, tile_1[2], tile_2[2];
 	VPPU3 *dut;
 	std::ofstream f("tb_gen.ppm");
@@ -25,7 +25,7 @@ int main(int argc, const char ** argv, const char ** env)
 	}
 	f << "P2\n160 144\n4\n";
 
-	first_iter = tile_toggle = cycles = row_code = offset = exit_code = 0;
+	last_clk = tile_toggle = cycles = row_code = offset = exit_code = 0;
 	last_px_state = 0;
 
 	tile_1[0] = 0xFF;	// 1111_1111
@@ -73,15 +73,16 @@ int main(int argc, const char ** argv, const char ** env)
 					// if (dut->PX_valid == 0 && first_iter)
 					// 	row_code = !row_code;
 		}
+		last_clk = dut->clk;
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
 
-    	if (dut->clk == 1 && cycles > 81)
+    	if (dut->clk != last_clk && dut->clk == 1) {	// on posedge of clock
     		if ((int)dut->PX_valid == 1) {
     			f << (int) dut->PX_OUT << " ";
     			std::cout << (int) dut->PX_valid << " " << (int) dut->PX_OUT << std::endl;
     		}
-
+    	}
     	// if (dut->PX_valid == 1)
     	// 	first_iter = 1;
 
