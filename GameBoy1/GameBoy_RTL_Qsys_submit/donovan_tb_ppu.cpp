@@ -69,7 +69,7 @@ int main(int argc, const char ** argv, const char ** env)
 			else if (dut->PPU_ADDR >= TILE_BASE && cycles > 81) 
 					dut->PPU_DATA_in = tile_2[row_code];
 
-					if (PX_valid == 1)
+					if (dut->PX_valid == 1)
 						row_code = !row_code;
 		}
     	dut->eval();     			// Run the simulation for a cycle
