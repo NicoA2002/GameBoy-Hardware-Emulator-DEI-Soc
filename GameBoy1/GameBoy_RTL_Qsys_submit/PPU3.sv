@@ -95,10 +95,13 @@ PPU_SHIFT_REG sp_fifo(.clk(clk), .rst(rst), .data(sp_tile_row), .go(sp_fifo_go),
 logic [7:0] LCDC, STAT, SCX, SCY, LYC, DMA, BGP, OBP0, OBP1, WX, WY; // Register alias
 
 logic [7:0] FF40;
+
 assign LCDC = FF40;
 
 logic [7:0] FF41;
 assign STAT = FF41;
+assign FF41[1:0] = PPU_MODE; 
+assign FF41[2] = LYC == LY;
 
 logic [7:0] FF42;
 assign SCY = FF42;
@@ -347,7 +350,10 @@ always_ff @(posedge clk) begin
 				// think there'll need to be a transition back to SP_SEARCH in case sprites are stacked on top of each other
 				PPU_DATA_in <= `BG_MAP_1_BASE_ADDR + tile_c;
 			end
-			SP_READY: begin
+			SP_READY: begin //nicos mod
+				//check to see if new sprite should be rendered
+
+				//FIXME: currently, sprite fetching entirely locks bg fetching
 			end
 		endcase
 	end
@@ -358,7 +364,7 @@ always_ff @(posedge clk) begin
 	if (PPU_MODE == DRAW) begin
 		case (px_mix_mode) begin
 			MIX_LOAD: begin
-					pixels_pushed <= pixels_pushed - 1;
+					pixels_pushed <= pixels_pushed - 1; //FIXME: potential overflow
 					if (pixels_pushed > 0) begin			// not how it'll work in final. just places sprites > bg
 						if (sp_out == 2'h0)
 							PX_OUT <= bg_out;
@@ -377,7 +383,7 @@ always_ff @(posedge clk) begin
 
 						px_mix_mode <= MIX_START;
 						PX_valid <= 0;
-						sp_fetch_mode <= SP_SEARCH;;
+						sp_fetch_mode <= SP_SEARCH;
 						bg_fetch_mode <= BG_PAUSE;
 						// x_pos <= x_pos + 8;
 					end
@@ -394,6 +400,7 @@ always_ff @(posedge clk) begin
 					mix_mode <= MIX_LOAD;
 				end
 		end
+		endcase 
 	end
 end
 endmodule
