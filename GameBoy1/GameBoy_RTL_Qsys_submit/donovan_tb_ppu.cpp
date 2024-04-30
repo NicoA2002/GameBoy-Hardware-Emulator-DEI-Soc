@@ -71,9 +71,11 @@ int main(int argc, const char ** argv, const char ** env)
 			else if (dut->PPU_ADDR >= TILE_BASE && cycles > 81) 
 					if (load == 0) {
 						dut->PPU_DATA_in = tile_2[0];
-						load++;
-					} else
+						load = 1;
+					} else if (load == 1)
 						dut->PPU_DATA_in = tile_2[1];
+					else
+						dut->PPU_DATA_in = 0xFF;
 		}
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
