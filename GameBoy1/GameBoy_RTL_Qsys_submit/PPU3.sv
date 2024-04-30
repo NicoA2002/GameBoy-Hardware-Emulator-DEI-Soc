@@ -17,8 +17,10 @@
 
 `define PPU_ADDR_INC(x) PPU_ADDR <= PPU_ADDR + x;
 
-typedef enum bit [1:0] {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
-typedef enum bit [2:0] {TILE_NO_STORE, ROW_1_LOAD, ROW_2_LOAD, FIFO_STALL, FIFO_PUSH} DRAW_STATES_t;
+typedef enum bit [1:0] {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
+typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_PAUSE, BG_READY} BG_DRAW_STATES_t;
+typedef enum bit [2:0] {SP_SEARCH, SP_ROW_1_LOAD, SP_ROW_2_LOAD, SP_READY} SP_DRAW_STATES_t;
+typedef enum bit [2:0] {MIX_LOAD, MIX_START, MIX_PUSH} MIX_STATES_t;
 
 module PPU3
 (
@@ -33,7 +35,7 @@ module PPU3
     output logic [7:0] MMIO_DATA_in,
     
     /* Interrupts */
-    output logic IRQ_V_BLANK,
+    output logic IRQ_PPU_V_BLANK,
     output logic IRQ_LCDC,
     
     output logic [1:0] PPU_MODE,
@@ -47,28 +49,53 @@ module PPU3
     output logic PX_valid
 );
 
+/* Extensions */
 logic [15:0] BIG_DATA_in, BIG_LY, BIG_X;
-logic [15:0] tile_c;
 
-logic sprite_in_range;
+/* Scanline tracking */
 logic [7:0] LY, x_pos;  // x-pos in range [0, 159]
+logic [8:0] cycles;
+logic [15:0] tile_c;
+logic [3:0] pixels_pushed;
+
+/* Sprite OAM Scan vars */
 logic [15:0] current_offset;
 logic [3:0] sprites_loaded;
+logic sprite_in_range;
 logic sprite_found;
-
-logic [8:0] cycles;
 
 logic [7:0] sprite_y_buff [9:0];
 logic [7:0] sprite_x_buff [9:0];
 logic [7:0] sprite_offset_buff [9:0]; 		// stores start of sprite entries in OAM (entry + 2 => for tile no.)
 
+/* BG fetching vars */
 logic bg_fifo_go;
 logic bg_fifo_load;
 logic [2:0] bg_fetch_mode;
 logic [7:0] bg_tile_row [1:0];
-logic [3:0] pixels_pushed;
 
-PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(PX_OUT));
+/* SP fetching vars */
+logic sp_fifo_go;
+logic sp_fifo_load;
+logic [2:0] sp_fetch_mode;
+logic [7:0] sp_tile_row [1:0];
+
+/* Pixel mixing */
+logic [1:0] bg_out;
+logic [1:0] sp_out;
+logic [2:0] px_mix_mode;
+
+/* Assigns */
+assign BIG_DATA_in = {8'b0,PPU_DATA_in};
+assign BIG_LY = {13'b0, LY[2:0]};
+assign BIG_X = {8'b0,x_pos};
+
+assign sprite_in_range = ((LY + 16 >= PPU_DATA_in) &&
+							(LY + 16 < PPU_DATA_in + (8 << LCDC[2])));
+assign current_offset = PPU_ADDR - `OAM_BASE_ADDR;
+
+PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(bg_out));
+PPU_SHIFT_REG sp_fifo(.clk(clk), .rst(rst), .data(sp_tile_row), .go(sp_fifo_go), .load(sp_fifo_load), .q(sp_out));
 
 /* External registers */
 logic [7:0] LCDC, STAT, SCX, SCY, LYC, DMA, BGP, OBP0, OBP1, WX, WY; // Register alias
@@ -153,36 +180,36 @@ always_ff @(posedge clk) begin
 			cycles <= 0;
 			LY <= 0;
 			PPU_ADDR <= `OAM_BASE_ADDR;
-			PPU_MODE <= SCAN;
+			PPU_MODE <= PPU_SCAN;
     end else if (LCDC[7]) begin
 		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
         case (PPU_MODE)
-            SCAN: begin
-		    	// if (PPU_ADDR == `OAM_END_ADDR) begin
+            PPU_SCAN: begin
 	    		if (cycles == 80) begin
-					PPU_MODE <= DRAW;
+					PPU_MODE <= PPU_DRAW;
 					tile_c <= BIG_LY >> 3;
-					bg_fetch_mode <= TILE_NO_STORE;
 					x_pos <= 0;
-					PPU_ADDR <= `BG_MAP_1_BASE_ADDR;		// might shit the bed if we have 40 sprites
+					bg_fetch_mode <= BG_TILE_NO_STORE;
+					PPU_ADDR <= `BG_MAP_1_BASE_ADDR;
+					// bg_fetch_mode <= BG_PAUSE;			// actual modes. alternate rn for testing
+					// sp_fetch_mode <= SP_SEARCH;
 		    	end
-				if (LY >= 144)
-					PPU_MODE <= V_BLANK;
+				if (LY >= 144) PPU_MODE <= PPU_V_BLANK;
 			end
-		    DRAW: 
+		    PPU_DRAW: 
 		    	if (x_pos > 160) begin
-		    		PPU_MODE <= H_BLANK;
+		    		PPU_MODE <= PPU_H_BLANK;
 		    		PX_valid <= 0;
 		    	end
-		    H_BLANK: 
+		    PPU_H_BLANK: 
 		    	if (cycles >= 455) begin		// we reached the end of the scanline
 					LY <= LY + 1;
 					x_pos <= 0;
-					PPU_MODE <= SCAN;
+					PPU_MODE <= PPU_SCAN;
 					cycles <= 0;
 				end
-		    V_BLANK: 							// not technically necessary but here for completeness
-				PPU_MODE <= H_BLANK;
+		    PPU_V_BLANK: 							// not technically necessary but here for completeness
+				PPU_MODE <= PPU_H_BLANK;
         endcase
     end
 end   
@@ -210,17 +237,12 @@ begin
     endcase
 end
 
-
-assign sprite_in_range = ((LY + 16 >= PPU_DATA_in) &&
-							(LY + 16 < PPU_DATA_in + (8 << LCDC[2])));
-assign current_offset = PPU_ADDR - `OAM_BASE_ADDR;
-
 /* -- OAM Scan State Machine -- */
 always_ff @(posedge clk) begin
-	if (rst || PPU_MODE == H_BLANK) begin
+	if (rst || PPU_MODE == PPU_H_BLANK) begin
 		sprites_loaded <= 0;
 		sprite_found <= 0;
-	end else if (PPU_MODE == SCAN) begin
+	end else if (PPU_MODE == PPU_SCAN) begin
 		if (!cycles[0])	begin								// forces alternating clock cycles
 			if (sprite_in_range && sprites_loaded < 10) begin
 				sprites_loaded <= sprites_loaded + 1;
@@ -240,55 +262,85 @@ always_ff @(posedge clk) begin
 	end
 end 
 
-assign BIG_DATA_in = {8'b0,PPU_DATA_in};
-assign BIG_LY = {13'b0, LY[2:0]};
-assign BIG_X = {8'b0,x_pos};
-
 /* BG Draw Machine */
 always_ff @(posedge clk) begin
 	if (rst) begin
 		pixels_pushed <= 1;
 		tile_c <= 1;
 	end
-	if (PPU_MODE == DRAW) begin
+	if (PPU_MODE == PPU_DRAW) begin
 		if (bg_fifo_go == 1) pixels_pushed <= pixels_pushed - 1;
 		if (pixels_pushed == 1) PX_valid <= 0;
 
 		case (bg_fetch_mode)
-			TILE_NO_STORE: begin
-				bg_fetch_mode <= ROW_1_LOAD;
+			BG_TILE_NO_STORE: begin
+				bg_fetch_mode <= BG_ROW_1_LOAD;
 				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);	// tile_base + (16 * tile_no) + 2 * (LY % 8)
 			end
-			ROW_1_LOAD: begin
+			BG_ROW_1_LOAD: begin
 				bg_tile_row[0] <= PPU_DATA_in;
-				bg_fetch_mode <= ROW_2_LOAD;
+				bg_fetch_mode <= BG_ROW_2_LOAD;
 				`PPU_ADDR_INC(1);
 			end
-			ROW_2_LOAD: begin
+			BG_ROW_2_LOAD: begin
 				bg_tile_row[1] <= PPU_DATA_in;
-				bg_fetch_mode <= FIFO_STALL;
-			end
-			FIFO_STALL: begin
-				if (pixels_pushed == 1) begin
-					bg_fifo_load <= 1;
-					bg_fifo_go <= 0;
-					PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
-					bg_fetch_mode <= FIFO_PUSH;
-					tile_c <= tile_c + 1;
-					x_pos <= x_pos + 8;
-				end
-			end
-			FIFO_PUSH: begin
-				if (x_pos <= 160)
-					PX_valid <= 1;
-				bg_fifo_go <= 1;
-				pixels_pushed <= 8; 
-				bg_fifo_load <= 0;
-				bg_fetch_mode <= TILE_NO_STORE;
+				bg_fetch_mode <= BG_READY;
+				sp_fetch_mode <= SP_READY;			// temporary line for mixing implementation
 			end
 			default: begin
 			end
 		endcase
+	end
+end
+
+/* Pixel Mixing & Output Machine */ 
+always_ff @(posedge clk) begin
+	if (PPU_MODE == PPU_DRAW) begin
+		case (px_mix_mode)
+			MIX_LOAD: begin
+					pixels_pushed <= pixels_pushed - 1; //FIXME: potential overflow
+					if (pixels_pushed > 0) begin			// not how it'll work in final. just places sprites > bg
+						if (sp_out == 2'h0)
+							PX_OUT <= bg_out;
+						else 
+							PX_OUT <= sp_out;
+					end
+
+					if (pixels_pushed == 1 && (sp_fetch_mode == SP_READY) && (bg_fetch_mode == BG_READY)) begin
+						// load both buffers into fifos
+						bg_fifo_load <= 1;
+						sp_fifo_load <= 1;
+						
+						// make sure we stop pushing for a sec
+						bg_fifo_go <= 0;
+						sp_fifo_go <= 0;
+
+						px_mix_mode <= MIX_START;
+						PX_valid <= 0;
+						// sp_fetch_mode <= SP_SEARCH;					// will need to be uncommented
+						// x_pos <= x_pos + 8;
+						tile_c <= tile_c + 1;
+						x_pos <= x_pos + 8;
+						PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;		// temporary line for implementation
+					end
+				end
+				MIX_START: begin
+					bg_fifo_load <= 0;
+					sp_fifo_load <= 0;
+						
+					bg_fifo_go <= 1;
+					sp_fifo_go <= 1;
+
+					if (x_pos <= 160)
+						PX_valid <= 1;
+					pixels_pushed <= 8; 
+ 
+					bg_fetch_mode <= BG_TILE_NO_STORE;
+					px_mix_mode <= MIX_LOAD;
+				end
+				default: begin
+				end
+		endcase 
 	end
 end
   

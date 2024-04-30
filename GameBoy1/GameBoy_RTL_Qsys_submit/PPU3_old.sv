@@ -325,7 +325,7 @@ always_ff @(posedge clk) begin
 				if (sp_x_buff[sp_ind] >= 16 &&
 						((x_pos < sp_real_x < x_pos + 8) ||						// base of sprite in tile
 						 (x_pos < sp_real_x + 8 < x_pos + 8))) begin			// end of sprite in tile
-					PPU_DATA_in <= `TILE_BASE + sp_offset_buff[sprite_ind] + 2;	// documentation claims this is stored somewhere but idk where
+					PPU_DATA_in <= `TILE_BASE + sp_offset_buff[sp_ind] + 2;	// documentation claims this is stored somewhere but idk where
 					sp_fetch_mode <= SP_ROW_1_LOAD;	
 				end else sp_ind <= sp_ind + 1;
 
@@ -362,7 +362,7 @@ end
 /* Pixel Mixing & Push Machine */ 
 always_ff @(posedge clk) begin
 	if (PPU_MODE == DRAW) begin
-		case (px_mix_mode) begin
+		case (px_mix_mode)
 			MIX_LOAD: begin
 					pixels_pushed <= pixels_pushed - 1; //FIXME: potential overflow
 					if (pixels_pushed > 0) begin			// not how it'll work in final. just places sprites > bg
@@ -399,7 +399,6 @@ always_ff @(posedge clk) begin
 					pixels_pushed <= 8; 
 					mix_mode <= MIX_LOAD;
 				end
-		end
 		endcase 
 	end
 end
