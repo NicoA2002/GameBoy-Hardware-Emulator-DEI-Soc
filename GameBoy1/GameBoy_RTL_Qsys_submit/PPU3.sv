@@ -161,6 +161,7 @@ always_ff @(posedge clk) begin
 		    	// if (PPU_ADDR == `OAM_END_ADDR) begin
 	    		if (cycles == 80) begin
 					PPU_MODE <= DRAW;
+					tile_c <= BIG_LY >> 3;
 					bg_fetch_mode <= TILE_NO_STORE;
 					x_pos <= 0;
 					PPU_ADDR <= `BG_MAP_1_BASE_ADDR;		// might shit the bed if we have 40 sprites
@@ -169,7 +170,7 @@ always_ff @(posedge clk) begin
 					PPU_MODE <= V_BLANK;
 			end
 		    DRAW: 
-		    	if (x_pos > 144) begin
+		    	if (x_pos > 160) begin
 		    		PPU_MODE <= H_BLANK;
 		    		PX_valid <= 0;
 		    	end
@@ -278,7 +279,7 @@ always_ff @(posedge clk) begin
 				end
 			end
 			FIFO_PUSH: begin
-				if (x_pos <= 144)
+				if (x_pos <= 160)
 					PX_valid <= 1;
 				bg_fifo_go <= 1;
 				pixels_pushed <= 8; 

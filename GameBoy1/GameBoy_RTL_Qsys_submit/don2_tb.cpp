@@ -13,8 +13,8 @@ typedef enum {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
 
 int main(int argc, const char ** argv, const char ** env) 
 {
-	int time, offset, exit_code, row_code, cycles, tile_toggle, last_clk, load;
-	char LCDC, last_px_state, tile_1[2], tile_2[2];
+	int time, exit_code, last_clk, row_1_loaded, cycles;
+	char LCDC, tile_1[2], tile_2[2];
 	VPPU3 *dut;
 	std::ofstream f("tb_gen.ppm");
 
@@ -25,8 +25,7 @@ int main(int argc, const char ** argv, const char ** env)
 	}
 	f << "P2\n160 144\n4\n";
 
-	load = last_clk = tile_toggle = cycles = row_code = offset = exit_code = 0;
-	last_px_state = 0;
+	cycles = last_clk = time = exit_code = row_1_loaded = 0;
 
 	tile_1[0] = 0xFF;	// 1111_1111
 	tile_1[1] = 0x00;	// 0000_0000
@@ -51,7 +50,6 @@ int main(int argc, const char ** argv, const char ** env)
 
 	dut->PPU_DATA_in = 0xFF;	// JUNK
 	for (time = 0 ; time < 1368000 ; time += 10) {
-		last_px_state = dut->PX_valid;
 		last_clk = dut->clk;
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
 		if (dut->PPU_MODE == H_BLANK)
@@ -65,23 +63,26 @@ int main(int argc, const char ** argv, const char ** env)
 
 		if (dut->PPU_MODE == DRAW && dut->clk == 1) {
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR) {
-				dut->PPU_DATA_in = tile_toggle;
-				load = 0;
+				dut->PPU_DATA_in = 0;							// tells it to pull from file 1
+				row_1_loaded = 0;
 			}
-			else if (dut->PPU_ADDR >= TILE_BASE && cycles > 81) 
-					if (load == 0) {
+
+			else if ((TILE_BASE <= dut->PPU_ADDR) && (TILE_BASE + 32 > dut->PPU_ADDR)) {
+					if (!row_1_loaded) {
 						dut->PPU_DATA_in = tile_2[0];
-						load = 1;
-					} else if (load == 1)
+						row_1_loaded = 1;
+					}
+					else 
 						dut->PPU_DATA_in = tile_2[1];
+			}
 		}
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
 
     	if (dut->clk != last_clk && dut->clk == 1) {	// on posedge of clock
+    		/* Writes to ppm file */
     		if ((int)dut->PX_valid == 1) {
     			f << (int) dut->PX_OUT << " ";
-    			// std::cout << (int) dut->PX_valid << " " << (int) dut->PX_OUT << std::endl;
     		}
     	}
     }
