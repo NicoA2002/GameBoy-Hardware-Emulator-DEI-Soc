@@ -180,8 +180,10 @@ always_ff @(posedge clk) begin
 					PPU_MODE <= SCAN;
 					cycles <= 0;
 				end
-		    V_BLANK: 							// not technically necessary but here for completeness
+		    V_BLANK: begin							// not technically necessary but here for completeness
 				PPU_MODE <= H_BLANK;
+				PX_valid <= 0;
+			end
         endcase
     end
 end   
