@@ -72,7 +72,6 @@ int main(int argc, const char ** argv, const char ** env)
 
 					if (dut->PX_valid == 0 && first_iter)
 						row_code = !row_code;
-					first_iter = 1;
 		}
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
@@ -82,6 +81,9 @@ int main(int argc, const char ** argv, const char ** env)
     			f << (int) dut->PX_OUT << " ";
     			std::cout << (int) dut->PX_valid << " " << (int) dut->PX_OUT << std::endl;
     		}
+
+    	if (dut->PX_valid == 1)
+    		first_iter = 1;
 
     	// if (cycles > 100)
     	// 	break;
