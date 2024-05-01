@@ -83,6 +83,7 @@ logic [2:0] sp_fetch_mode;
 logic [7:0] sp_tile_row [1:0];
 
 /* Pixel mixing */
+logic ready_load;
 logic [1:0] bg_out;
 logic [1:0] sp_out;
 logic [2:0] px_mix_mode;
@@ -341,7 +342,7 @@ always_ff @(posedge clk) begin
 			SP_ROW_2_LOAD: begin
 				
 			end
-			SP_READY: begin //nicos mod
+			SP_READY: begin
 				//check to see if new sprite should be rendered
 			end
 			default: begin
@@ -354,10 +355,12 @@ assign PX_OUT = (sp_out == 2'h0) ? bg_out : sp_out;
 
 /* Pixel Mixing & Output Machine */ 
 always_ff @(posedge clk) begin
-	if (PPU_MODE == PPU_DRAW) begin
+	if (rst) begin
+		ready_load <= 1;
+	end else if (PPU_MODE == PPU_DRAW) begin
 		case (px_mix_mode)
 			MIX_LOAD: begin
-					if (cycles > 84) pixels_pushed <= pixels_pushed - 1; //FIXME: potential overflow
+					if (!ready_load) pixels_pushed <= pixels_pushed - 1;
 
 					if (pixels_pushed == 1 && (sp_fetch_mode == SP_READY) && (bg_fetch_mode == BG_READY)) begin
 						// load both buffers into fifos
@@ -374,6 +377,11 @@ always_ff @(posedge clk) begin
 						tile_c <= tile_c + 1;
 						x_pos <= x_pos + 8;
 					end
+
+					if (pixels_pushed == 0) begin
+						pixels_pushed <= 1;
+						ready_load <= 1;
+					end
 				end
 				MIX_START: begin
 					bg_fifo_load <= 0;
@@ -385,6 +393,7 @@ always_ff @(posedge clk) begin
 					if (x_pos <= 160) PX_valid <= 1;
 
 					pixels_pushed <= 8; 
+					ready_load <= 0;
  
 					bg_fetch_mode <= BG_PAUSE;
 					sp_fetch_mode <= SP_SEARCH;
