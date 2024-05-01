@@ -293,18 +293,14 @@ always_ff @(posedge clk) begin
 	end
 end
 
+assign PX_OUT = (sp_out == 2'h0) ? bg_out : sp_out;
+
 /* Pixel Mixing & Output Machine */ 
 always_ff @(posedge clk) begin
 	if (PPU_MODE == PPU_DRAW) begin
 		case (px_mix_mode)
 			MIX_LOAD: begin
-					pixels_pushed <= pixels_pushed - 1; //FIXME: potential overflow
-					if (pixels_pushed > 0) begin			// not how it'll work in final. just places sprites > bg
-						if (sp_out == 2'h0)
-							PX_OUT <= bg_out;
-						else 
-							PX_OUT <= sp_out;
-					end
+					if (cycles > 84) pixels_pushed <= pixels_pushed - 1; //FIXME: potential overflow
 
 					if (pixels_pushed == 1 && (sp_fetch_mode == SP_READY) && (bg_fetch_mode == BG_READY)) begin
 						// load both buffers into fifos
@@ -316,6 +312,7 @@ always_ff @(posedge clk) begin
 						sp_fifo_go <= 0;
 
 						px_mix_mode <= MIX_START;
+
 						PX_valid <= 0;
 						// sp_fetch_mode <= SP_SEARCH;					// will need to be uncommented
 						// x_pos <= x_pos + 8;
@@ -331,8 +328,8 @@ always_ff @(posedge clk) begin
 					bg_fifo_go <= 1;
 					sp_fifo_go <= 1;
 
-					if (x_pos <= 160)
-						PX_valid <= 1;
+					if (x_pos <= 160) PX_valid <= 1;
+
 					pixels_pushed <= 8; 
  
 					bg_fetch_mode <= BG_TILE_NO_STORE;
