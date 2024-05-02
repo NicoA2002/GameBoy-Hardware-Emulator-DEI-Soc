@@ -37,8 +37,8 @@ int main(int argc, const char ** argv, const char ** env)
 
 	tile_3 = 0x00;
 
-	sprite_data[0] = 16 + (8 * 3);		// (y-value)		16 + pos
-	sprite_data[1] = 8 + (8 * 2);		// (x-value)		 8 + pos
+	sprite_data[0] = 16 + (8 * 1);		// (y-value)		16 + pos
+	sprite_data[1] = 8 + (8 * 1);		// (x-value)		 8 + pos
 	sprite_data[2] = 2;					// (tile no.)
 	sprite_data[3] = 0x00;				// flags (prio and other things)
 
@@ -69,16 +69,17 @@ int main(int argc, const char ** argv, const char ** env)
     	dut->rst = (time == 30) ? 1 : 0;
     	if (dut->rst == 1)
     		cycles = 0;
-
     	
-		if (dut->PPU_ADDR == OAM_BASE_ADDR)
-			dut->PPU_DATA_in = sprite_data[0];
-		if (dut->PPU_ADDR == OAM_BASE_ADDR + 1)
-			dut->PPU_DATA_in = sprite_data[1];
-		if (dut->PPU_ADDR == OAM_BASE_ADDR + 2)
-			dut->PPU_DATA_in = sprite_data[2];
-		if (dut->PPU_ADDR == OAM_BASE_ADDR + 3)
-			dut->PPU_DATA_in = sprite_data[3];
+    	if (dut->clk == 1) {
+			if (dut->PPU_ADDR == OAM_BASE_ADDR)
+				dut->PPU_DATA_in = sprite_data[0];
+			if (dut->PPU_ADDR == OAM_BASE_ADDR + 1)
+				dut->PPU_DATA_in = sprite_data[1];
+			if (dut->PPU_ADDR == OAM_BASE_ADDR + 2)
+				dut->PPU_DATA_in = sprite_data[2];
+			if (dut->PPU_ADDR == OAM_BASE_ADDR + 3)
+				dut->PPU_DATA_in = sprite_data[3];
+		}
 
 		if (dut->PPU_MODE == PPU_DRAW && dut->clk == 1) {
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR) {
