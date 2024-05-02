@@ -97,7 +97,7 @@ assign sp_in_range = ((LY + 16 >= PPU_DATA_in) &&
 							(LY + 16 < PPU_DATA_in + (8 << LCDC[2])));
 assign current_offset = PPU_ADDR - `OAM_BASE_ADDR;
 
-assign sp_real_x = sp_x_buff[sp_ind] - 16;
+assign sp_real_x = sp_x_buff[sp_ind] - 8;
 
 PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(bg_out));
 PPU_SHIFT_REG sp_fifo(.clk(clk), .rst(rst), .data(sp_tile_row), .go(sp_fifo_go), .load(sp_fifo_load), .q(sp_out));
@@ -250,7 +250,7 @@ always_ff @(posedge clk) begin
 		sp_loaded <= 0;
 		sp_found <= 0;
 	end else if (PPU_MODE == PPU_SCAN) begin
-		if (!cycles[0])	begin								// forces alternating clock cycles
+		if (cycles[0])	begin								// forces alternating clock cycles
 			if (sp_in_range && sp_loaded < 10) begin
 				sp_loaded <= sp_loaded + 1;
 				sp_y_buff[sp_loaded] <= PPU_DATA_in;
@@ -270,15 +270,14 @@ always_ff @(posedge clk) begin
 end 
 
 /*
- * READ ME BEFORE MODIFYING
  *
- * Currently everything is set up for the BG to draw but will need to be modified according too
- * 1. Find a sprite between x_pos and x_pos + 8 => load it into sp_fifo
- * 2. Proceed through bg machine to load up fifo => load it into bg_fifo
- * 3. Create new machine that performs pixel mixing and flushing
- * 4. 		have the process restart for next tile while waiting for fifo to flush completely
-
- * after this we'll need to add interrupts, LCDC flags and alternate mode support then the PPU should be done
+ * We'll need to implement
+ *  Proper pixel mixing
+ *  Interrupts
+ * 	LCDC flags 
+ * 	Alternate mode support
+ * 	Tall sprites
+ *
  */
 
 /* BG Draw Machine */
@@ -313,15 +312,6 @@ end
  *	State machine iterates through detected sprites for a PPU_scanline,
  *	loads the rows into the sp_fifo and switches the bg drawing on
 */
-
-logic [15:0] BIG_SUM;
-logic test_cond;
-
-assign BIG_SUM = BIG_DATA_in + (BIG_LY << 1) + (BIG_DATA_in << 4);
-assign test_cond = sp_x_buff[sp_ind] >= 16 &&
-						((x_pos <= sp_real_x && sp_real_x < x_pos + 8) ||						// base of sprite in tile
-						 (x_pos <= sp_real_x + 8 && sp_real_x + 8 < x_pos + 8));
-
 always_ff @(posedge clk) begin
 	if (rst) begin
 		sp_ind <= 0;
@@ -329,7 +319,9 @@ always_ff @(posedge clk) begin
 	if (PPU_MODE == PPU_DRAW) begin
 		case (sp_fetch_mode)
 			SP_SEARCH: begin
-				if (test_cond) begin			// end of sprite in tile
+				if (sp_x_buff[sp_ind] >= 8 &&
+						((x_pos <= sp_real_x && sp_real_x < x_pos + 8) ||						// base of sprite in tile
+						 (x_pos <= sp_real_x + 8 && sp_real_x + 8 < x_pos + 8))) begin			// end of sprite in tile
 					PPU_ADDR <= {8'b0, sp_offset_buff[sp_ind]} + 2;								// grabs tile no. of sprite
 					sp_fetch_mode <= SP_TILE_LOAD;	
 				end else sp_ind <= sp_ind + 1;
@@ -346,12 +338,12 @@ always_ff @(posedge clk) begin
 			end
 			SP_ROW_1_LOAD: begin
 				sp_tile_row[0] <= PPU_DATA_in;
-				// sp_fetch_mode <= SP_ROW_2_LOAD;
+				sp_fetch_mode <= SP_ROW_2_LOAD;
 				`PPU_ADDR_INC(1);
-				sp_fetch_mode <= SP_RUN_BG;
 			end
 			SP_ROW_2_LOAD: begin
-				
+				sp_tile_row[1] <= PPU_DATA_in;
+				sp_fetch_mode <= SP_RUN_BG;
 			end
 			SP_RUN_BG: begin
 				sp_ind <= 0;
