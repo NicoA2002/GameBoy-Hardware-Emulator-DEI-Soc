@@ -317,24 +317,25 @@ always_ff @(posedge clk) begin
 	if (PPU_MODE == PPU_DRAW) begin
 		case (sp_fetch_mode)
 			SP_SEARCH: begin
-				// if (sp_x_buff[sp_ind] >= 16 &&
-				// 		((x_pos < sp_real_x && sp_real_x < x_pos + 8) ||						// base of sprite in tile
-				// 		 (x_pos < sp_real_x + 8 && sp_real_x + 8 < x_pos + 8))) begin			// end of sprite in tile
-				// 	PPU_ADDR <= `TILE_BASE + {8'b0, sp_offset_buff[sp_ind]} + 2;	// documentation claims this is stored somewhere but idk where
-				// 	sp_fetch_mode <= SP_ROW_1_LOAD;	
-				// end else sp_ind <= sp_ind + 1;
+				if (sp_x_buff[sp_ind] >= 16 &&
+						((x_pos < sp_real_x && sp_real_x < x_pos + 8) ||						// base of sprite in tile
+						 (x_pos < sp_real_x + 8 && sp_real_x + 8 < x_pos + 8))) begin			// end of sprite in tile
+					PPU_ADDR <= `TILE_BASE + {8'b0, sp_offset_buff[sp_ind]} + 2;	// documentation claims this is stored somewhere but idk where
+					sp_fetch_mode <= SP_ROW_1_LOAD;	
+				end else sp_ind <= sp_ind + 1;
 
-				// if (sp_ind == 9) begin
+				if (sp_ind == 9) begin
+					sp_fetch_mode <= SP_ROW_1_LOAD;
 				// 	sp_tile_row[0] <= 0;
 				// 	sp_tile_row[1] <= 0;
 
 				// 	bg_fetch_mode <= BG_TILE_NO_STORE;
 				// 	sp_fetch_mode <= SP_READY;
 				// 	PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
-				// end
-				sp_fetch_mode <= SP_ROW_1_LOAD;
+				end
 			end
 			SP_ROW_1_LOAD: begin
+				sp_ind <= 0;
 				bg_fetch_mode <= BG_TILE_NO_STORE;
 				PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
 				sp_fetch_mode <= SP_READY;
@@ -362,20 +363,23 @@ always_ff @(posedge clk) begin
 			MIX_LOAD: begin
 					if (!ready_load) pixels_pushed <= pixels_pushed - 1;
 
-					if (pixels_pushed == 1 && (sp_fetch_mode == SP_READY) && (bg_fetch_mode == BG_READY)) begin
-						// load both buffers into fifos
-						bg_fifo_load <= 1;
-						sp_fifo_load <= 1;
-						
-						// make sure we stop pushing for a sec
-						bg_fifo_go <= 0;
-						sp_fifo_go <= 0;
-
-						px_mix_mode <= MIX_START;
-
+					if (pixels_pushed == 1) begin
 						PX_valid <= 0;
-						tile_c <= tile_c + 1;
-						x_pos <= x_pos + 8;
+						if ((sp_fetch_mode == SP_READY) && (bg_fetch_mode == BG_READY)) begin
+							// load both buffers into fifos
+							bg_fifo_load <= 1;
+							sp_fifo_load <= 1;
+							
+							// make sure we stop pushing for a sec
+							bg_fifo_go <= 0;
+							sp_fifo_go <= 0;
+
+							px_mix_mode <= MIX_START;
+
+							PX_valid <= 0;
+							tile_c <= tile_c + 1;
+							x_pos <= x_pos + 8;
+						end
 					end
 
 					if (pixels_pushed == 0) begin
