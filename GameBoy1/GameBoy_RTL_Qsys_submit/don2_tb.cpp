@@ -13,7 +13,7 @@ typedef enum {H_BLANK, V_BLANK, SCAN, DRAW} PPU_STATES_t;
 
 int main(int argc, const char ** argv, const char ** env) 
 {
-	int time, exit_code, last_clk, row_1_loaded, cycles;
+	int time, exit_code, last_clk, row_1_loaded, cycles, tile_toggle, tile_row_cnt;
 	char LCDC, tile_1[2], tile_2[2];
 	VPPU3 *dut;
 	std::ofstream f("tb_gen.ppm");
@@ -25,7 +25,7 @@ int main(int argc, const char ** argv, const char ** env)
 	}
 	f << "P2\n160 144\n4\n";
 
-	cycles = last_clk = time = exit_code = row_1_loaded = 0;
+	tile_row_cnt = tile_toggle = cycles = last_clk = time = exit_code = row_1_loaded = 0;
 
 	tile_1[0] = 0xFF;	// 1111_1111
 	tile_1[1] = 0x00;	// 0000_0000
@@ -52,9 +52,10 @@ int main(int argc, const char ** argv, const char ** env)
 	for (time = 0 ; time < 1368000 ; time += 10) {
 		last_clk = dut->clk;
     	dut->clk = ((time % 20) >= 10) ? 1 : 0; 	// Simulate a 50 MHz clock
-		if (dut->PPU_MODE == H_BLANK)
+		if (dut->PPU_MODE == H_BLANK) {
 			cycles = 0;
-    	else if (dut->clk == 1)
+			tile_row_cnt = 0;
+		} else if (dut->clk == 1)
     		cycles++;
 
     	dut->rst = (time == 30) ? 1 : 0;			// pulses rst 
@@ -63,17 +64,28 @@ int main(int argc, const char ** argv, const char ** env)
 
 		if (dut->PPU_MODE == DRAW && dut->clk == 1) {
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR) {
-				dut->PPU_DATA_in = 0;							// tells it to pull from file 1
+				dut->PPU_DATA_in = !(tile_row_cnt % 2 == 0);					// tells it to pull from file 1
 				row_1_loaded = 0;
 			}
 
-			else if ((TILE_BASE <= dut->PPU_ADDR) && (TILE_BASE + 32 > dut->PPU_ADDR)) {
+			else if ((TILE_BASE <= dut->PPU_ADDR) && (TILE_BASE + 16 > dut->PPU_ADDR)) {
 					if (!row_1_loaded) {
+						tile_row_cnt++;
 						dut->PPU_DATA_in = tile_2[0];
 						row_1_loaded = 1;
 					}
 					else 
 						dut->PPU_DATA_in = tile_2[1];
+			}
+
+			else if ((TILE_BASE + 16 <= dut->PPU_ADDR) && (TILE_BASE + 32 > dut->PPU_ADDR)) {
+					if (!row_1_loaded) {
+						tile_row_cnt++;
+						dut->PPU_DATA_in = tile_1[0];
+						row_1_loaded = 1;
+					}
+					else 
+						dut->PPU_DATA_in = tile_1[1];
 			}
 		}
     	dut->eval();     			// Run the simulation for a cycle

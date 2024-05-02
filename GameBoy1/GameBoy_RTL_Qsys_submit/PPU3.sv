@@ -192,6 +192,8 @@ always_ff @(posedge clk) begin
             PPU_SCAN: begin
 	    		if (cycles == 80) begin
 					PPU_MODE <= PPU_DRAW;
+					ready_load <= 1;
+					pixels_pushed <= 1;
 					tile_c <= BIG_LY >> 3;
 					x_pos <= 0;
 					
@@ -210,6 +212,7 @@ always_ff @(posedge clk) begin
 					LY <= LY + 1;
 					x_pos <= 0;
 					PPU_MODE <= PPU_SCAN;
+					PPU_ADDR <= `OAM_BASE_ADDR;
 					cycles <= 0;
 				end
 		    PPU_V_BLANK: 							// not technically necessary but here for completeness
@@ -361,7 +364,10 @@ always_ff @(posedge clk) begin
 	end else if (PPU_MODE == PPU_DRAW) begin
 		case (px_mix_mode)
 			MIX_LOAD: begin
-					if (!ready_load) pixels_pushed <= pixels_pushed - 1;
+					if (!ready_load) begin
+						pixels_pushed <= pixels_pushed - 1;
+						PX_valid <= 1;
+					end
 
 					if (pixels_pushed == 1) begin
 						PX_valid <= 0;
@@ -385,6 +391,7 @@ always_ff @(posedge clk) begin
 					if (pixels_pushed == 0) begin
 						pixels_pushed <= 1;
 						ready_load <= 1;
+						PX_valid <= 0;
 					end
 				end
 				MIX_START: begin
