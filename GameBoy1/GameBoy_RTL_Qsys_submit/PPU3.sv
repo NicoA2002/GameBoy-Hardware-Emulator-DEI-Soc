@@ -19,7 +19,7 @@
 
 typedef enum bit [1:0] {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_READY, BG_PAUSE} BG_DRAW_STATES_t;
-typedef enum bit [2:0] {SP_SEARCH, SP_ROW_1_LOAD, SP_ROW_2_LOAD, SP_READY} SP_DRAW_STATES_t;
+typedef enum bit [2:0] {SP_SEARCH, SP_ROW_1_LOAD, SP_ROW_2_LOAD, SP_READY, SP_RUN_BG, SP_TILE_LOAD} SP_DRAW_STATES_t;
 typedef enum bit [2:0] {MIX_LOAD, MIX_START, MIX_PUSH} MIX_STATES_t;
 
 module PPU3
@@ -313,6 +313,15 @@ end
  *	State machine iterates through detected sprites for a PPU_scanline,
  *	loads the rows into the sp_fifo and switches the bg drawing on
 */
+
+logic [15:0] BIG_SUM;
+logic test_cond;
+
+assign BIG_SUM = BIG_DATA_in + (BIG_LY << 1) + (BIG_DATA_in << 4);
+assign test_cond = sp_x_buff[sp_ind] >= 16 &&
+						((x_pos <= sp_real_x && sp_real_x < x_pos + 8) ||						// base of sprite in tile
+						 (x_pos <= sp_real_x + 8 && sp_real_x + 8 < x_pos + 8));
+
 always_ff @(posedge clk) begin
 	if (rst) begin
 		sp_ind <= 0;
@@ -320,31 +329,35 @@ always_ff @(posedge clk) begin
 	if (PPU_MODE == PPU_DRAW) begin
 		case (sp_fetch_mode)
 			SP_SEARCH: begin
-				if (sp_x_buff[sp_ind] >= 16 &&
-						((x_pos < sp_real_x && sp_real_x < x_pos + 8) ||						// base of sprite in tile
-						 (x_pos < sp_real_x + 8 && sp_real_x + 8 < x_pos + 8))) begin			// end of sprite in tile
-					PPU_ADDR <= `TILE_BASE + {8'b0, sp_offset_buff[sp_ind]} + 2;	// documentation claims this is stored somewhere but idk where
-					sp_fetch_mode <= SP_ROW_1_LOAD;	
+				if (test_cond) begin			// end of sprite in tile
+					PPU_ADDR <= {8'b0, sp_offset_buff[sp_ind]} + 2;								// grabs tile no. of sprite
+					sp_fetch_mode <= SP_TILE_LOAD;	
 				end else sp_ind <= sp_ind + 1;
 
 				if (sp_ind == 9) begin
-					sp_fetch_mode <= SP_ROW_1_LOAD;
-				// 	sp_tile_row[0] <= 0;
-				// 	sp_tile_row[1] <= 0;
-
-				// 	bg_fetch_mode <= BG_TILE_NO_STORE;
-				// 	sp_fetch_mode <= SP_READY;
-				// 	PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
+					sp_fetch_mode <= SP_RUN_BG;
+					sp_tile_row[0] <= 0;
+					sp_tile_row[1] <= 0;
 				end
 			end
+			SP_TILE_LOAD: begin
+				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);
+				sp_fetch_mode <= SP_ROW_1_LOAD;
+			end
 			SP_ROW_1_LOAD: begin
+				sp_tile_row[0] <= PPU_DATA_in;
+				// sp_fetch_mode <= SP_ROW_2_LOAD;
+				`PPU_ADDR_INC(1);
+				sp_fetch_mode <= SP_RUN_BG;
+			end
+			SP_ROW_2_LOAD: begin
+				
+			end
+			SP_RUN_BG: begin
 				sp_ind <= 0;
 				bg_fetch_mode <= BG_TILE_NO_STORE;
 				PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
 				sp_fetch_mode <= SP_READY;
-			end
-			SP_ROW_2_LOAD: begin
-				
 			end
 			SP_READY: begin
 				//check to see if new sprite should be rendered

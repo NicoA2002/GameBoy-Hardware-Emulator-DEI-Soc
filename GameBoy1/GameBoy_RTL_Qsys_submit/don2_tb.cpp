@@ -88,6 +88,10 @@ int main(int argc, const char ** argv, const char ** env)
 						dut->PPU_DATA_in = tile_1[1];
 			}
 		}
+
+		if (dut->PPU_MODE == H_BLANK)
+			dut->PPU_DATA_in = 0x0;
+
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
 
