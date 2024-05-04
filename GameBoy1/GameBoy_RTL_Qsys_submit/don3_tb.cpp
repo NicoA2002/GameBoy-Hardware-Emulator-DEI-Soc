@@ -78,6 +78,8 @@ int main(int argc, const char ** argv, const char ** env)
 			else if (cycles == 1)
 				dut->PPU_DATA_in = sprite_data[1];
 			else if (cycles == 2)
+				dut->PPU_DATA_in = 32;
+			else if (cycles == 4)
 				dut->PPU_DATA_in = 0;
 
 			if (cycles > 455) {
@@ -109,7 +111,7 @@ int main(int argc, const char ** argv, const char ** env)
 					dut->PPU_DATA_in = tile_1[1];
 			}
 			if (((TILE_BASE + (16*2) <= dut->PPU_ADDR) && (TILE_BASE + (16*3) > dut->PPU_ADDR) && !dut->DEBUG_FLAG) ||
-									(dut->PPU_ADDR == 0xFE02)){
+									(dut->PPU_ADDR == 0xFE02) || (dut->PPU_ADDR == 0xFE06) || (dut->PPU_ADDR == 0xFE06)){
 				dut->PPU_DATA_in = tile_3;
 			}
 
@@ -122,7 +124,7 @@ int main(int argc, const char ** argv, const char ** env)
 				}
 				if (dut->DEBUG_FLAG == 0x2)
 					dut->PPU_DATA_in = sprite_data[0];
-				if (dut->DEBUG_FLAG == 0x3)
+				if (dut->DEBUG_FLAG == 0x3 || dut->DEBUG_FLAG == 0x4)
 					dut->PPU_DATA_in = 2;
 	    	}
 

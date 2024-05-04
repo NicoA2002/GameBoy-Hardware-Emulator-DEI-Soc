@@ -190,6 +190,7 @@ always_ff @(posedge clk) begin
 	if (PPU_DATA_in != PREV_DATA_in) PREV_DATA_in <= PPU_DATA_in;
 
 	if ((LY >= 8 && LY < 16) && (x_pos >= 8 && x_pos < 16) && cycles == 95) DEBUG_FLAG <= 3;
+	else if ((LY >= 16 && LY < 24) && (x_pos >= 24 && x_pos < 32) && cycles == 127) DEBUG_FLAG <= 4;
 	else DEBUG_FLAG <= 0;
 
     if (rst) begin
