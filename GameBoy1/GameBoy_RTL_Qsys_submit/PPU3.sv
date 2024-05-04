@@ -15,7 +15,7 @@
 
 `define NO_BOOT 0
 
-`define PPU_ADDR_INC(x) PPU_ADDR <= PPU_ADDR + x;
+`define PPU_ADDR_INC(x) PPU_ADDR <= PPU_ADDR + x
 
 typedef enum bit [1:0] {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_READY, BG_PAUSE} BG_DRAW_STATES_t;
@@ -46,7 +46,8 @@ module PPU3
     input logic [7:0] PPU_DATA_in,
     
     output logic [1:0] PX_OUT,
-    output logic PX_valid
+    output logic PX_valid, 
+    output logic [7:0] DEBUG_FLAG
 );
 
 /* Extensions */
@@ -63,6 +64,7 @@ logic [15:0] current_offset;
 logic [3:0] sp_loaded;
 logic sp_in_range;
 logic sp_found;
+logic [15:0] offset_jump;
 
 logic [7:0] sp_y_buff [9:0];
 logic [7:0] sp_x_buff [9:0];
@@ -88,13 +90,17 @@ logic [1:0] bg_out;
 logic [1:0] sp_out;
 logic [2:0] px_mix_mode;
 
+/* Dealayed Data Input */
+logic [7:0] PREV_DATA_in;
+logic mem_update;
+
 /* Assigns */
-assign BIG_DATA_in = {8'b0,PPU_DATA_in};
+assign BIG_DATA_in = {8'b0,PREV_DATA_in};
 assign BIG_LY = {13'b0, LY[2:0]};
 assign BIG_X = {8'b0,x_pos};
 
-assign sp_in_range = ((LY + 16 >= PPU_DATA_in) &&
-							(LY + 16 < PPU_DATA_in + (8 << LCDC[2])));
+assign sp_in_range = ((LY + 16 >= PREV_DATA_in) &&
+							(LY + 16 < PREV_DATA_in + (8 << LCDC[2])));
 assign current_offset = PPU_ADDR - `OAM_BASE_ADDR;
 
 assign sp_real_x = sp_x_buff[sp_ind] - 8;
@@ -180,6 +186,9 @@ end
 /* -- State Switching machine -- */
 always_ff @(posedge clk) begin
 	cycles <= cycles + 1;
+
+	if (PPU_DATA_in != PREV_DATA_in) PREV_DATA_in <= PPU_DATA_in;
+
     if (rst) begin
 			x_pos <= 0;
 			cycles <= 0;
@@ -190,7 +199,7 @@ always_ff @(posedge clk) begin
 		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
         case (PPU_MODE)
             PPU_SCAN: begin
-	    		if (cycles == 80) begin
+	    		if (cycles == 79) begin
 					PPU_MODE <= PPU_DRAW;
 					ready_load <= 1;
 					pixels_pushed <= 1;
@@ -207,14 +216,18 @@ always_ff @(posedge clk) begin
 		    		PPU_MODE <= PPU_H_BLANK;
 		    		PX_valid <= 0;
 		    	end
-		    PPU_H_BLANK: 
+		    PPU_H_BLANK: begin
+		    	if (cycles == 454) 		// DEBUG_FLAG
+		    		DEBUG_FLAG <= 2;	// DEBUG_FLAG
 		    	if (cycles >= 455) begin		// we reached the end of the scanline
 					LY <= LY + 1;
 					x_pos <= 0;
 					PPU_MODE <= PPU_SCAN;
 					PPU_ADDR <= `OAM_BASE_ADDR;
 					cycles <= 0;
+					DEBUG_FLAG <= 0;
 				end
+			end
 		    PPU_V_BLANK: 							// not technically necessary but here for completeness
 				PPU_MODE <= PPU_H_BLANK;
         endcase
@@ -246,28 +259,59 @@ end
 
 /* -- OAM Scan State Machine -- */
 always_ff @(posedge clk) begin
-	if (rst || PPU_MODE == PPU_H_BLANK) begin
+	if (rst) begin
 		sp_loaded <= 0;
-		sp_found <= 0;
-	end else if (PPU_MODE == PPU_SCAN) begin
-		if (cycles[0])	begin								// forces alternating clock cycles
-			if (sp_in_range && sp_loaded < 10) begin
+	end if (PPU_MODE == PPU_SCAN) begin
+		// if (cycles[0])	begin								// forces alternating clock cycles
+		// 	if (sp_in_range && sp_loaded < 10) begin
+		// 		sp_loaded <= sp_loaded + 1;
+		// 		sp_y_buff[sp_loaded] <= PREV_DATA_in;
+		// 		sp_offset_buff[sp_loaded] <= current_offset[7:0];
+		// 		sp_found <= 1;
+		// 		`PPU_ADDR_INC(1);							// jumps to x-byte
+		// 	end else if (cycles != 79) `PPU_ADDR_INC(4);						// jumps to next sprite in OAM
+		// end else begin
+		// 	if (sp_found) begin
+		// 		sp_x_buff[sp_loaded - 1] <= PREV_DATA_in;
+		// 		`PPU_ADDR_INC(3);						// jumps to next sprite in OAM
+		// 	end
+		// 	sp_found <= 0;
+		// end
+		if (offset_jump != 0) begin
+			if (offset_jump == 1) begin
 				sp_loaded <= sp_loaded + 1;
-				sp_y_buff[sp_loaded] <= PPU_DATA_in;
+				sp_y_buff[sp_loaded] <= PREV_DATA_in;
 				sp_offset_buff[sp_loaded] <= current_offset[7:0];
-				sp_found <= 1;
-				`PPU_ADDR_INC(1);							// jumps to x-byte
-			end else if (cycles != 80) `PPU_ADDR_INC(4);						// jumps to next sprite in OAM
-		end else begin
-			if (sp_found) begin
-				sp_x_buff[sp_loaded - 1] <= PPU_DATA_in;
-				`PPU_ADDR_INC(3);						// jumps to next sprite in OAM
-			end
-			sp_found <= 0;
-		end
+			end else if (offset_jump == 3) sp_x_buff[sp_loaded - 1] <= PREV_DATA_in;
 
+			`PPU_ADDR_INC(offset_jump);
+		end
+		else if (cycles != 79 && cycles[0]) `PPU_ADDR_INC(4);
 	end
 end 
+
+always_ff @(posedge clk or negedge clk) begin
+	if (rst || PPU_MODE == PPU_H_BLANK) begin
+		offset_jump <= 0;
+		sp_found <= 0;
+	end
+	
+	if (clk == 0) begin
+		if (!cycles[0])	begin								// forces alternating clock cycles
+			if (sp_in_range && sp_loaded < 10) begin
+				offset_jump <= 1;							// jumps to x-byte
+				sp_found <= 1;
+			end
+		end else begin
+			if (sp_found) begin
+				offset_jump <= 3;
+				sp_found <= 0;
+			end
+		end
+	end
+	if (clk)
+		offset_jump <= 0;
+end
 
 /*
  *
@@ -293,12 +337,12 @@ always_ff @(posedge clk) begin
 				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);	// tile_base + (16 * tile_no) + 2 * (LY % 8)
 			end
 			BG_ROW_1_LOAD: begin
-				bg_tile_row[0] <= PPU_DATA_in;
+				bg_tile_row[0] <= PREV_DATA_in;
 				bg_fetch_mode <= BG_ROW_2_LOAD;
 				`PPU_ADDR_INC(1);
 			end
 			BG_ROW_2_LOAD: begin
-				bg_tile_row[1] <= PPU_DATA_in;
+				bg_tile_row[1] <= PREV_DATA_in;
 				bg_fetch_mode <= BG_READY;
 			end
 			default: begin
@@ -328,6 +372,7 @@ always_ff @(posedge clk) begin
 
 				if (sp_ind == 9) begin
 					sp_fetch_mode <= SP_RUN_BG;
+					DEBUG_FLAG <= 1;
 					sp_tile_row[0] <= 0;
 					sp_tile_row[1] <= 0;
 				end
@@ -337,19 +382,21 @@ always_ff @(posedge clk) begin
 				sp_fetch_mode <= SP_ROW_1_LOAD;
 			end
 			SP_ROW_1_LOAD: begin
-				sp_tile_row[0] <= PPU_DATA_in;
+				sp_tile_row[0] <= PREV_DATA_in;
 				sp_fetch_mode <= SP_ROW_2_LOAD;
 				`PPU_ADDR_INC(1);
 			end
 			SP_ROW_2_LOAD: begin
-				sp_tile_row[1] <= PPU_DATA_in;
+				sp_tile_row[1] <= PREV_DATA_in;
 				sp_fetch_mode <= SP_RUN_BG;
+				DEBUG_FLAG <= 1;
 			end
 			SP_RUN_BG: begin
 				sp_ind <= 0;
 				bg_fetch_mode <= BG_TILE_NO_STORE;
 				PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
 				sp_fetch_mode <= SP_READY;
+				DEBUG_FLAG <= 0;
 			end
 			SP_READY: begin
 				//check to see if new sprite should be rendered
