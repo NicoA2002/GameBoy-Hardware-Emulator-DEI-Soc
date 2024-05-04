@@ -35,12 +35,12 @@ int main(int argc, const char ** argv, const char ** env)
 	tile_2[0] = 0xAA;	// 1010_1010
 	tile_2[1] = 0x55;	// 0101_0101
 
-	tile_3 = 0x00;
+	tile_3 = 0xFF;
 
 	sprite_data[0] = 16 + (8 * 1);		// (y-value)		16 + pos
 	sprite_data[1] = 8 + (8 * 1);		// (x-value)		 8 + pos
 	sprite_data[2] = 2;					// (tile no.)
-	sprite_data[3] = 0x00;				// flags (prio and other things)
+	sprite_data[3] = 0xFF;				// flags (prio and other things)
 
 	Verilated::commandArgs(argc, argv);
 
@@ -87,18 +87,7 @@ int main(int argc, const char ** argv, const char ** env)
 				dut->PPU_DATA_in = 0x0;
 			}
 
-			/* BG Tile fetching */
-			if (dut->clk != last_clk && dut->clk == 1) {	// on posedge of clock
-	    		if (dut->DEBUG_FLAG == 0x1) {
-					tile_toggle = !tile_toggle;
-					dut->PPU_DATA_in = tile_toggle;					// tells it to pull from file 1
-					row_1_loaded = 0;
-				}
-				if (dut->DEBUG_FLAG == 0x2) {
-					dut->PPU_DATA_in = sprite_data[0];
-				}
-	    	}
-			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR) {		// currently looking at a tile
+			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR && !dut->DEBUG_FLAG) {		// currently looking at a tile
 				if (dut->PPU_DATA_in == 0) {
 					if (!row_1_loaded) {				// guarantees it only happens once
 						tile_row_cnt++;
@@ -119,6 +108,24 @@ int main(int argc, const char ** argv, const char ** env)
 				else
 					dut->PPU_DATA_in = tile_1[1];
 			}
+			if (((TILE_BASE + (16*2) <= dut->PPU_ADDR) && (TILE_BASE + (16*3) > dut->PPU_ADDR) && !dut->DEBUG_FLAG) ||
+									(dut->PPU_ADDR == 0xFE02)){
+				dut->PPU_DATA_in = tile_3;
+			}
+
+			/* BG Tile fetching */
+			if (dut->clk != last_clk && dut->clk == 1) {	// on posedge of clock
+	    		if (dut->DEBUG_FLAG == 0x1) {
+					tile_toggle = !tile_toggle;
+					dut->PPU_DATA_in = tile_toggle;					// tells it to pull from file 1
+					row_1_loaded = 0;
+				}
+				if (dut->DEBUG_FLAG == 0x2)
+					dut->PPU_DATA_in = sprite_data[0];
+				if (dut->DEBUG_FLAG == 0x3)
+					dut->PPU_DATA_in = 2;
+	    	}
+
 		}
 
     	dut->eval();     			// Run the simulation for a cycle

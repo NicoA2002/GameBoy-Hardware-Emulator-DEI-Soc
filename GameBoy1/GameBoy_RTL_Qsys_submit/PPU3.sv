@@ -189,6 +189,9 @@ always_ff @(posedge clk) begin
 
 	if (PPU_DATA_in != PREV_DATA_in) PREV_DATA_in <= PPU_DATA_in;
 
+	if ((LY >= 8 && LY < 16) && (x_pos >= 8 && x_pos < 16) && cycles == 95) DEBUG_FLAG <= 3;
+	else DEBUG_FLAG <= 0;
+
     if (rst) begin
 			x_pos <= 0;
 			cycles <= 0;
@@ -221,10 +224,17 @@ always_ff @(posedge clk) begin
 		    		DEBUG_FLAG <= 2;	// DEBUG_FLAG
 		    	if (cycles >= 455) begin		// we reached the end of the scanline
 					LY <= LY + 1;
+
+					for (int i = 0; i < 10; i++) begin
+			            sp_x_buff[0] = 8'd0;
+			            sp_y_buff[0] = 8'd0;
+			            sp_offset_buff[i] = 8'd0;
+			        end
 					x_pos <= 0;
+					sp_loaded <= 0;
+					cycles <= 0;
 					PPU_MODE <= PPU_SCAN;
 					PPU_ADDR <= `OAM_BASE_ADDR;
-					cycles <= 0;
 					DEBUG_FLAG <= 0;
 				end
 			end
@@ -262,21 +272,6 @@ always_ff @(posedge clk) begin
 	if (rst) begin
 		sp_loaded <= 0;
 	end if (PPU_MODE == PPU_SCAN) begin
-		// if (cycles[0])	begin								// forces alternating clock cycles
-		// 	if (sp_in_range && sp_loaded < 10) begin
-		// 		sp_loaded <= sp_loaded + 1;
-		// 		sp_y_buff[sp_loaded] <= PREV_DATA_in;
-		// 		sp_offset_buff[sp_loaded] <= current_offset[7:0];
-		// 		sp_found <= 1;
-		// 		`PPU_ADDR_INC(1);							// jumps to x-byte
-		// 	end else if (cycles != 79) `PPU_ADDR_INC(4);						// jumps to next sprite in OAM
-		// end else begin
-		// 	if (sp_found) begin
-		// 		sp_x_buff[sp_loaded - 1] <= PREV_DATA_in;
-		// 		`PPU_ADDR_INC(3);						// jumps to next sprite in OAM
-		// 	end
-		// 	sp_found <= 0;
-		// end
 		if (offset_jump != 0) begin
 			if (offset_jump == 1) begin
 				sp_loaded <= sp_loaded + 1;
@@ -295,7 +290,8 @@ always_ff @(posedge clk or negedge clk) begin
 		offset_jump <= 0;
 		sp_found <= 0;
 	end
-	
+
+	if (clk) offset_jump <= 0;
 	if (clk == 0) begin
 		if (!cycles[0])	begin								// forces alternating clock cycles
 			if (sp_in_range && sp_loaded < 10) begin
@@ -309,8 +305,6 @@ always_ff @(posedge clk or negedge clk) begin
 			end
 		end
 	end
-	if (clk)
-		offset_jump <= 0;
 end
 
 /*
@@ -364,9 +358,8 @@ always_ff @(posedge clk) begin
 		case (sp_fetch_mode)
 			SP_SEARCH: begin
 				if (sp_x_buff[sp_ind] >= 8 &&
-						((x_pos <= sp_real_x && sp_real_x < x_pos + 8) ||						// base of sprite in tile
-						 (x_pos <= sp_real_x + 8 && sp_real_x + 8 < x_pos + 8))) begin			// end of sprite in tile
-					PPU_ADDR <= {8'b0, sp_offset_buff[sp_ind]} + 2;								// grabs tile no. of sprite
+						(sp_real_x >= x_pos && sp_real_x < x_pos + 8)) begin			// end of sprite in tile
+					PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_offset_buff[sp_ind]} + 2;			// points to tile no. of sprite
 					sp_fetch_mode <= SP_TILE_LOAD;	
 				end else sp_ind <= sp_ind + 1;
 
@@ -378,7 +371,7 @@ always_ff @(posedge clk) begin
 				end
 			end
 			SP_TILE_LOAD: begin
-				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);
+				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);					// load in tile data
 				sp_fetch_mode <= SP_ROW_1_LOAD;
 			end
 			SP_ROW_1_LOAD: begin
