@@ -12,6 +12,7 @@
 `define BG_MAP_1_END_ADDR 16'h9BFF
 
 `define TILE_BASE 16'h8000
+`define MAX_LY 8'd155
 
 `define NO_BOOT 0
 
@@ -146,6 +147,20 @@ assign WY = FF4A;
 logic [7:0] FF4B;
 assign WX = FF4B;
 
+/*  STAT Register  */
+assign FF41 = ;
+
+/*
+ *  Interrupt Assigns
+ * 
+ * 
+ * 
+*/
+
+assign IRQ_PPU_V_BLANK = PPU_MODE == PPU_V_BLANK;
+assign IRQ_LCDC = (STAT[2] && STAT[6]) || ; //fixme 
+
+
 /* Register Assignment
  * 
  * 	if a register memory address is being indexed it gets updated here 
@@ -213,7 +228,9 @@ always_ff @(posedge clk) begin
 					bg_fetch_mode <= BG_PAUSE;
 					sp_fetch_mode <= SP_SEARCH;
 		    	end
-				if (LY >= 144) PPU_MODE <= PPU_V_BLANK;
+				if (LY >= 144) begin 
+					PPU_MODE <= PPU_V_BLANK; 
+				end
 			end
 		    PPU_DRAW: 
 		    	if (x_pos > 160) begin
@@ -239,8 +256,16 @@ always_ff @(posedge clk) begin
 					DEBUG_FLAG <= 0;
 				end
 			end
-		    PPU_V_BLANK: 							// not technically necessary but here for completeness
-				PPU_MODE <= PPU_H_BLANK;
+		    PPU_V_BLANK: begin							// not technically necessary but here for completeness
+				if (cycles >= 455) begin		// we reached the end of the scanline
+					LY <= LY + 1;
+					cycles <= 0;
+					if (LY >= `MAX_LY) begin
+						LY <= 0;
+						PPU_MODE <= PPU_SCAN;
+					end
+				end
+			end
         endcase
     end
 end   
