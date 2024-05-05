@@ -152,13 +152,10 @@ assign FF41 = ;
 
 /*
  *  Interrupt Assigns
- * 
- * 
- * 
 */
 
 assign IRQ_PPU_V_BLANK = PPU_MODE == PPU_V_BLANK;
-assign IRQ_LCDC = (STAT[2] && STAT[6]) || ; //fixme 
+assign IRQ_LCDC = (STAT[2] && STAT[6]) || (STAT[3] & ~|STAT[1:0]) || (STAT[4] & ~STAT[1] & STAT[0]) || (STAT[5] & STAT[1] & ~STAT[0]);  
 
 
 /* Register Assignment
