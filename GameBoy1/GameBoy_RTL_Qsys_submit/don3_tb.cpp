@@ -126,6 +126,8 @@ int main(int argc, const char ** argv, const char ** env)
 					dut->PPU_DATA_in = sprite_data[0];
 				if (dut->DEBUG_FLAG == 0x3 || dut->DEBUG_FLAG == 0x4)
 					dut->PPU_DATA_in = 2;
+				if (dut->DEBUG_FLAG == 0x5)
+					dut->PPU_DATA_in = 0x7F;
 	    	}
 
 		}

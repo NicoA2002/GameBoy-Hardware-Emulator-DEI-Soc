@@ -61,7 +61,7 @@ logic [15:0] tile_c;
 logic [3:0] pixels_pushed;
 
 /* Sprite OAM Scan vars */
-logic [15:0] current_offset;
+logic [15:0] curr_off;
 logic [3:0] sp_loaded;
 logic sp_in_range;
 logic sp_found;
@@ -69,7 +69,7 @@ logic [15:0] offset_jump;
 
 logic [7:0] sp_y_buff [9:0];
 logic [7:0] sp_x_buff [9:0];
-logic [7:0] sp_offset_buff [9:0]; 		// stores start of sprite entries in OAM (entry + 2 => for tile no.)
+logic [7:0] sp_off_buff [9:0]; 		// stores start of sprite entries in OAM (entry + 2 => for tile no.)
 
 /* BG fetching vars */
 logic bg_fifo_go;
@@ -80,6 +80,7 @@ logic [7:0] bg_tile_row [1:0];
 /* SP fetching vars */
 logic sp_fifo_go;
 logic sp_fifo_load;
+logic [7:0] curr_sp_flag;
 logic [7:0] sp_real_x;		// used to account for the 16 offset
 logic [3:0] sp_ind;
 logic [2:0] sp_fetch_mode;
@@ -102,7 +103,7 @@ assign BIG_X = {8'b0,x_pos};
 
 assign sp_in_range = ((LY + 16 >= PREV_DATA_in) &&
 							(LY + 16 < PREV_DATA_in + (8 << LCDC[2])));
-assign current_offset = PPU_ADDR - `OAM_BASE_ADDR;
+assign curr_off = PPU_ADDR - `OAM_BASE_ADDR;
 
 assign sp_real_x = sp_x_buff[sp_ind] - 8;
 
@@ -147,13 +148,9 @@ assign WY = FF4A;
 logic [7:0] FF4B;
 assign WX = FF4B;
 
-/*  STAT Register  */
-assign FF41 = ;
-
 /*
  *  Interrupt Assigns
 */
-
 assign IRQ_PPU_V_BLANK = PPU_MODE == PPU_V_BLANK;
 assign IRQ_LCDC = (STAT[2] && STAT[6]) || (STAT[3] & ~|STAT[1:0]) || (STAT[4] & ~STAT[1] & STAT[0]) || (STAT[5] & STAT[1] & ~STAT[0]);  
 
@@ -243,7 +240,7 @@ always_ff @(posedge clk) begin
 					for (int i = 0; i < 10; i++) begin
 			            sp_x_buff[0] = 8'd0;
 			            sp_y_buff[0] = 8'd0;
-			            sp_offset_buff[i] = 8'd0;
+			            sp_off_buff[i] = 8'd0;
 			        end
 					x_pos <= 0;
 					sp_loaded <= 0;
@@ -253,7 +250,7 @@ always_ff @(posedge clk) begin
 					DEBUG_FLAG <= 0;
 				end
 			end
-		    PPU_V_BLANK: begin							// not technically necessary but here for completeness
+		    PPU_V_BLANK: begin
 				if (cycles >= 455) begin		// we reached the end of the scanline
 					LY <= LY + 1;
 					cycles <= 0;
@@ -299,7 +296,7 @@ always_ff @(posedge clk) begin
 			if (offset_jump == 1) begin
 				sp_loaded <= sp_loaded + 1;
 				sp_y_buff[sp_loaded] <= PREV_DATA_in;
-				sp_offset_buff[sp_loaded] <= current_offset[7:0];
+				sp_off_buff[sp_loaded] <= curr_off[7:0];
 			end else if (offset_jump == 3) sp_x_buff[sp_loaded - 1] <= PREV_DATA_in;
 
 			`PPU_ADDR_INC(offset_jump);
@@ -382,7 +379,7 @@ always_ff @(posedge clk) begin
 			SP_SEARCH: begin
 				if (sp_x_buff[sp_ind] >= 8 &&
 						(sp_real_x >= x_pos && sp_real_x < x_pos + 8)) begin			// end of sprite in tile
-					PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_offset_buff[sp_ind]} + 2;			// points to tile no. of sprite
+					PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2;			// points to tile no. of sprite
 					sp_fetch_mode <= SP_TILE_LOAD;	
 				end else sp_ind <= sp_ind + 1;
 
@@ -400,15 +397,18 @@ always_ff @(posedge clk) begin
 			SP_ROW_1_LOAD: begin
 				sp_tile_row[0] <= PREV_DATA_in;
 				sp_fetch_mode <= SP_ROW_2_LOAD;
+				DEBUG_FLAG <= 5;
 				`PPU_ADDR_INC(1);
 			end
 			SP_ROW_2_LOAD: begin
 				sp_tile_row[1] <= PREV_DATA_in;
+				PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3;	// grabs sprite flags
 				sp_fetch_mode <= SP_RUN_BG;
 				DEBUG_FLAG <= 1;
 			end
 			SP_RUN_BG: begin
 				sp_ind <= 0;
+				curr_sp_flag <= PREV_DATA_in;
 				bg_fetch_mode <= BG_TILE_NO_STORE;
 				PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
 				sp_fetch_mode <= SP_READY;
@@ -423,7 +423,7 @@ always_ff @(posedge clk) begin
 	end
 end
 
-assign PX_OUT = (sp_out == 2'h0) ? bg_out : sp_out;
+assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
 
 /* Pixel Mixing & Output Machine */ 
 always_ff @(posedge clk) begin
