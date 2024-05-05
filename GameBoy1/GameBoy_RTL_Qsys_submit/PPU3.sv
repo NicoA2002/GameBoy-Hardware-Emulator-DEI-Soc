@@ -4,7 +4,6 @@
 
 /* WARNING: DOES NOT HAVE INTERRUPTS OR ANY EXTERNAL OUTPUTS IMPLEMENTED */
 
-
 `define OAM_BASE_ADDR 16'hFE00
 `define OAM_END_ADDR 16'hFEA0
 
@@ -85,6 +84,7 @@ logic [7:0] sp_real_x;		// used to account for the 16 offset
 logic [3:0] sp_ind;
 logic [2:0] sp_fetch_mode;
 logic [7:0] sp_tile_row [1:0];
+logic unsigned [7:0] sp_mask;
 
 /* Pixel mixing */
 logic ready_load;
@@ -222,9 +222,7 @@ always_ff @(posedge clk) begin
 					bg_fetch_mode <= BG_PAUSE;
 					sp_fetch_mode <= SP_SEARCH;
 		    	end
-				if (LY >= 144) begin 
-					PPU_MODE <= PPU_V_BLANK; 
-				end
+				if (LY >= 144) PPU_MODE <= PPU_V_BLANK; 
 			end
 		    PPU_DRAW: 
 		    	if (x_pos > 160) begin
@@ -232,8 +230,7 @@ always_ff @(posedge clk) begin
 		    		PX_valid <= 0;
 		    	end
 		    PPU_H_BLANK: begin
-		    	if (cycles == 454) 		// DEBUG_FLAG
-		    		DEBUG_FLAG <= 2;	// DEBUG_FLAG
+		    	if (cycles == 454) DEBUG_FLAG <= 2;			// DEBUG_FLAG
 		    	if (cycles >= 455) begin		// we reached the end of the scanline
 					LY <= LY + 1;
 
@@ -330,11 +327,13 @@ end
 /*
  *
  * We'll need to implement
- *  Proper pixel mixing
- *  Interrupts
+ *  Proper pixel mixing			o 
+ *  Interrupts					o 
  * 	LCDC flags 
  * 	Alternate mode support
  * 	Tall sprites
+ *  SCX and SCY
+ * 	Right side masking
  *
  */
 
@@ -378,9 +377,14 @@ always_ff @(posedge clk) begin
 		case (sp_fetch_mode)
 			SP_SEARCH: begin
 				if (sp_x_buff[sp_ind] >= 8 &&
-						(sp_real_x >= x_pos && sp_real_x < x_pos + 8)) begin			// end of sprite in tile
+						((sp_real_x >= x_pos && sp_real_x < x_pos + 8) || 
+						  sp_real_x + 8 > x_pos && sp_real_x + 8 <= x_pos + 8)) begin			// end of sprite in tile
 					PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2;			// points to tile no. of sprite
 					sp_fetch_mode <= SP_TILE_LOAD;	
+					
+					if (sp_real_x > x_pos && sp_real_x < x_pos + 8) sp_mask <= 8'hFF >> (x_pos + 8 - sp_real_x);
+					else sp_mask <= 8'hFF;
+
 				end else sp_ind <= sp_ind + 1;
 
 				if (sp_ind == 9) begin
@@ -395,13 +399,13 @@ always_ff @(posedge clk) begin
 				sp_fetch_mode <= SP_ROW_1_LOAD;
 			end
 			SP_ROW_1_LOAD: begin
-				sp_tile_row[0] <= PREV_DATA_in;
+				sp_tile_row[0] <= PREV_DATA_in & sp_mask;
 				sp_fetch_mode <= SP_ROW_2_LOAD;
 				DEBUG_FLAG <= 5;
 				`PPU_ADDR_INC(1);
 			end
 			SP_ROW_2_LOAD: begin
-				sp_tile_row[1] <= PREV_DATA_in;
+				sp_tile_row[1] <= PREV_DATA_in & sp_mask;
 				PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3;	// grabs sprite flags
 				sp_fetch_mode <= SP_RUN_BG;
 				DEBUG_FLAG <= 1;

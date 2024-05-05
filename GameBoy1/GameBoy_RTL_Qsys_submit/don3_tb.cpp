@@ -79,6 +79,8 @@ int main(int argc, const char ** argv, const char ** env)
 				dut->PPU_DATA_in = sprite_data[1];
 			else if (cycles == 2)
 				dut->PPU_DATA_in = 32;
+			else if (cycles == 3)
+				dut->PPU_DATA_in = 35;
 			else if (cycles == 4)
 				dut->PPU_DATA_in = 0;
 
