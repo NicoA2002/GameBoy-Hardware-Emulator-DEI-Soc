@@ -15,7 +15,7 @@ typedef enum {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 
 int main(int argc, const char ** argv, const char ** env) 
 {
-	int time, exit_code, last_clk, row_1_loaded, cycles, tile_toggle, tile_row_cnt;
+	int time, exit_code, last_clk, row_1_loaded, cycles, tile_toggle, tile_row_cnt, scan_line;
 	char LCDC, tile_1[2], tile_2[2], tile_3, sprite_data[4];
 	VPPU3 *dut;
 	std::ofstream f("tb_gen.ppm");
@@ -27,7 +27,7 @@ int main(int argc, const char ** argv, const char ** env)
 	}
 	f << "P2\n160 144\n4\n";
 
-	tile_row_cnt = tile_toggle = cycles = last_clk = time = exit_code = row_1_loaded = 0;
+	scan_line = tile_row_cnt = tile_toggle = cycles = last_clk = time = exit_code = row_1_loaded = 0;
 
 	tile_1[0] = 0xFF;	// 1111_1111
 	tile_1[1] = 0x00;	// 0000_0000
@@ -89,28 +89,29 @@ int main(int argc, const char ** argv, const char ** env)
 				tile_toggle = 0;
 				tile_row_cnt = 0;
 				dut->PPU_DATA_in = 0x0;
+				scan_line++;
 			}
 
 			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR && !dut->DEBUG_FLAG) {		// currently looking at a tile
 				if (dut->PPU_DATA_in == 0) {
 					if (!row_1_loaded) {				// guarantees it only happens once
 						tile_row_cnt++;
-						dut->PPU_DATA_in = tile_2[0];
+						dut->PPU_DATA_in = tile_2[(scan_line % 2 == 0)];
 						row_1_loaded = 1;
 					}
 				} else if (dut->PPU_DATA_in == 1) {
 					if (!row_1_loaded) {
 						tile_row_cnt++;
-						dut->PPU_DATA_in = tile_1[0];
+						dut->PPU_DATA_in = tile_2[0];
 						row_1_loaded = 1;
 					}
 				}
 			}
 			if ((TILE_BASE <= dut->PPU_ADDR) && (TILE_BASE + (16*2) > dut->PPU_ADDR) && !dut->DEBUG_FLAG) {
 				if (tile_toggle == 0)
-					dut->PPU_DATA_in = tile_2[1];
+					dut->PPU_DATA_in = tile_2[(scan_line % 2 == 0)];
 				else
-					dut->PPU_DATA_in = tile_1[1];
+					dut->PPU_DATA_in = tile_2[1];
 			}
 			if (((TILE_BASE + (16*2) <= dut->PPU_ADDR) && (TILE_BASE + (16*3) > dut->PPU_ADDR) && !dut->DEBUG_FLAG) ||
 									(dut->PPU_ADDR == 0xFE02) || (dut->PPU_ADDR == 0xFE06) || (dut->PPU_ADDR == 0xFE06)){
