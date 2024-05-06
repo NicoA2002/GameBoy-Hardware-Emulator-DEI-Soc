@@ -333,7 +333,7 @@ end
  * 	Alternate mode support
  * 	Tall sprites
  *  SCX and SCY
- * 	Check right side masking
+ * 	X masking					o
  *  Y masking
  *
  */
