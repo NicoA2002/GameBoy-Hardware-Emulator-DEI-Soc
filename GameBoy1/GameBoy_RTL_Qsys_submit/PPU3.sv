@@ -382,7 +382,8 @@ always_ff @(posedge clk) begin
 					PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2;			// points to tile no. of sprite
 					sp_fetch_mode <= SP_TILE_LOAD;	
 					
-					if (sp_real_x > x_pos && sp_real_x < x_pos + 8) sp_mask <= 8'hFF >> (x_pos + 8 - sp_real_x);
+					if (sp_real_x > x_pos && sp_real_x < x_pos + 8) sp_mask <= 8'hFF >> (x_pos + 6 - sp_real_x);
+					else if (sp_real_x + 8 > x_pos && sp_real_x + 8 < x_pos + 8) sp_mask <= 8'hFF << (x_pos - sp_real_x);
 					else sp_mask <= 8'hFF;
 
 				end else sp_ind <= sp_ind + 1;
