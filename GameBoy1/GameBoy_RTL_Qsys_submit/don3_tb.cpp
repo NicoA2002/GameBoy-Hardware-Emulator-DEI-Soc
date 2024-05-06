@@ -37,7 +37,7 @@ int main(int argc, const char ** argv, const char ** env)
 
 	tile_3 = 0xFF;
 
-	sprite_data[0] = 16 + (8 * 1);		// (y-value)		16 + pos
+	sprite_data[0] = 16 + 1;		// (y-value)		16 + pos
 	sprite_data[1] = 8 + (8 * 1);		// (x-value)		 8 + pos
 	sprite_data[2] = 2;					// (tile no.)
 	sprite_data[3] = 0xFF;				// flags (prio and other things)

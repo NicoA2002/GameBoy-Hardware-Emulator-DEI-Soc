@@ -334,7 +334,8 @@ end
  * 	Tall sprites
  *  SCX and SCY
  * 	X masking					o
- *  Y masking
+ *  Y masking 					o
+ * 		(handled by scanlines but tested anyways)
  *
  */
 
