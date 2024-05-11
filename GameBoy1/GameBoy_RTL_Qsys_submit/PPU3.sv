@@ -231,7 +231,7 @@ always_ff @(posedge clk) begin
 		    	end
 		    PPU_H_BLANK: begin
 		    	if (cycles == 454) DEBUG_FLAG <= 2;			// DEBUG_FLAG
-		    	if (cycles >= 455) begin		// we reached the end of the scanline
+		    	if (cycles >= 455) begin					// we reached the end of the scanline
 					LY <= LY + 1;
 
 					for (int i = 0; i < 10; i++) begin
