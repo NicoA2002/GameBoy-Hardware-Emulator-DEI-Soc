@@ -88,6 +88,7 @@ logic [2:0] sp_fetch_mode;
 logic [7:0] sp_tile_row [1:0];
 
 logic unsigned [7:0] gen_mask;
+logic unsigned [7:0] sp_mask;
 
 /* Pixel mixing */
 logic ready_load;
@@ -226,7 +227,7 @@ always_ff @(posedge clk) begin
 				if (LY >= 144) PPU_MODE <= PPU_V_BLANK; 
 			end
 		    PPU_DRAW: begin
-		    	if (x_pos > 160) begin
+		    	if ((x_pos > 160 && SCX == 0) || x_pos > 168) begin
 		    		PPU_MODE <= PPU_H_BLANK;
 		    	end
 		    end
@@ -344,16 +345,19 @@ always_ff @(posedge clk) begin
 				BG_TILE_NO_STORE: begin
 					bg_fetch_mode <= BG_ROW_1_LOAD;
 					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
+					if (x_pos == 0) gen_mask <= 8'hFF >> SCX[2:0];
+					else if (x_pos == 160) gen_mask <= ~(8'hFF << SCX[2:0]);
+					else gen_mask <= 8'hFF;
 				end
 				BG_ROW_1_LOAD: begin
-					// bg_tile_row[0] <= PPU_DATA_in & gen_mask;
-					bg_tile_row[0] <= PPU_DATA_in;
+					bg_tile_row[0] <= PPU_DATA_in & gen_mask;
+					// bg_tile_row[0] <= PPU_DATA_in;
 					bg_fetch_mode <= BG_ROW_2_LOAD;
 					`PPU_ADDR_INC(1);
 				end
 				BG_ROW_2_LOAD: begin
-					// bg_tile_row[1] <= PPU_DATA_in & gen_mask;
-					bg_tile_row[1] <= PPU_DATA_in;
+					bg_tile_row[1] <= PPU_DATA_in & gen_mask;
+					// bg_tile_row[1] <= PPU_DATA_in;
 					bg_fetch_mode <= BG_READY;
 				end
 				default: begin
@@ -386,12 +390,13 @@ always_ff @(posedge clk) begin
 						`PPU_ADDR_SET(`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2);
 						sp_fetch_mode <= SP_TILE_LOAD;	
 						
-
-						if (sp_real_x > x_pos && sp_real_x < x_pos + 8) gen_mask <= 8'hFF >> (x_pos + 6 - sp_real_x);
-
-						else if (sp_real_x + 8 > x_pos && sp_real_x + 8 < x_pos + 8) gen_mask <= 8'hFF << (x_pos - sp_real_x);
-
+						if (x_pos == 0) gen_mask <= 8'hFF >> SCX[2:0];
+						else if (x_pos == 160) gen_mask <= ~(8'hFF << SCX[2:0]);
 						else gen_mask <= 8'hFF;
+
+						if (sp_real_x > x_pos && sp_real_x < x_pos + 8) sp_mask <= 8'hFF >> (x_pos + 6 - sp_real_x);
+						else if (sp_real_x + 8 > x_pos && sp_real_x + 8 < x_pos + 8) sp_mask <= 8'hFF << (x_pos - sp_real_x);
+						else sp_mask <= 8'hFF;
 
 					end else sp_ind <= sp_ind + 1;
 
@@ -402,16 +407,17 @@ always_ff @(posedge clk) begin
 					end
 				end
 				SP_TILE_LOAD: begin
+					sp_mask <= sp_mask & gen_mask;
 					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));
 					sp_fetch_mode <= SP_ROW_1_LOAD;
 				end
 				SP_ROW_1_LOAD: begin
-					sp_tile_row[0] <= PPU_DATA_in & gen_mask;
+					sp_tile_row[0] <= PPU_DATA_in & sp_mask;
 					sp_fetch_mode <= SP_ROW_2_LOAD;
 					`PPU_ADDR_INC(1);
 				end
 				SP_ROW_2_LOAD: begin
-					sp_tile_row[1] <= PPU_DATA_in & gen_mask;
+					sp_tile_row[1] <= PPU_DATA_in & sp_mask;
 					`PPU_ADDR_SET(`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3);
 					sp_fetch_mode <= SP_RUN_BG;
 				end
@@ -433,7 +439,7 @@ always_ff @(posedge clk) begin
 end
 
 assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
-assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160);
+assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160 || (x_pos <= 168 && SCX != 0));
 
 /* Pixel Mixing & Output Machine */ 
 always_ff @(posedge clk) begin
