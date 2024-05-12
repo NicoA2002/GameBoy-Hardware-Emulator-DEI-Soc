@@ -45,7 +45,7 @@ int main(int argc, const char ** argv, const char ** env)
 	}
 
 	OAM_MEM[0] = 16;				// (y-value)		16 + pos
-	OAM_MEM[1] = 8 + (8 * 1);		// (x-value)		 8 + pos
+	OAM_MEM[1] = 8 + (8 * 0);		// (x-value)		 8 + pos
 	OAM_MEM[2] = 2;					// (tile no.)
 	OAM_MEM[3] = 0xFF;				// flags (prio and other things)
 

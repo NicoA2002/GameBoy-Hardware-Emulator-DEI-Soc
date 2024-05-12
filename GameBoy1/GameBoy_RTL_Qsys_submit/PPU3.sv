@@ -15,12 +15,14 @@
 
 `define NO_BOOT 0
 
-`define PPU_ADDR_INC(x) PPU_ADDR <= PPU_ADDR + x
+`define PPU_ADDR_INC(x) `PPU_ADDR_SET(PPU_ADDR + x)
+`define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ
 
 typedef enum bit [1:0] {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_READY, BG_PAUSE} BG_DRAW_STATES_t;
 typedef enum bit [2:0] {SP_SEARCH, SP_ROW_1_LOAD, SP_ROW_2_LOAD, SP_READY, SP_RUN_BG, SP_TILE_LOAD} SP_DRAW_STATES_t;
 typedef enum bit [2:0] {MIX_LOAD, MIX_START, MIX_PUSH} MIX_STATES_t;
+typedef enum bit [2:0] {MEM_EMPTY, MEM_REQ, MEM_LOAD, MEM_NO_REQ} MEM_STATES_t;
 
 module PPU3
 (
@@ -93,7 +95,7 @@ logic [1:0] sp_out;
 logic [2:0] px_mix_mode;
 
 /* Dealayed Data Input */
-logic mem_req;
+logic [2:0] mem_config;
 
 /* Assigns */
 assign BIG_DATA_in = {8'b0,PPU_DATA_in};
@@ -191,11 +193,13 @@ begin
     end
 end
 
+/* -- Memory Loading machine -- */
+always_ff @(posedge clk) begin
+	if (mem_config != MEM_NO_REQ) mem_config <= mem_config + 1;
+end
+
 /* -- State Switching machine -- */
 always_ff @(posedge clk) begin
-	cycles <= cycles + 1;
-	mem_req <= 0;
-
 	// if ((LY >= 8 && LY < 16) && (x_pos >= 8 && x_pos < 16) && cycles == 95) DEBUG_FLAG <= 3;
 	// else if ((LY >= 16 && LY < 24) && (x_pos >= 24 && x_pos < 32) && cycles == 127) DEBUG_FLAG <= 4;
 	// else DEBUG_FLAG <= 0;
@@ -204,10 +208,10 @@ always_ff @(posedge clk) begin
 			x_pos <= 0;
 			cycles <= 0;
 			LY <= 0;
-			PPU_ADDR <= `OAM_BASE_ADDR;
-			mem_req <= 1;
+			`PPU_ADDR_SET(`OAM_BASE_ADDR);
 			PPU_MODE <= PPU_SCAN;
-    end else if (LCDC[7]) begin
+    end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
+    	cycles <= cycles + 1;
 		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
         case (PPU_MODE)
             PPU_SCAN: begin
@@ -288,28 +292,28 @@ always_ff @(posedge clk) begin
 	if (rst || PPU_MODE == PPU_H_BLANK) begin
 		sp_loaded <= 0;
 		sp_found <= 0;
-	end else if (PPU_MODE == PPU_SCAN) begin
-		if (cycles[0])	begin								// forces alternating clock cycles
-			if (sp_in_range && sp_loaded < 10) begin
-				sp_loaded <= sp_loaded + 1;
-				sp_y_buff[sp_loaded] <= PPU_DATA_in;
-				sp_off_buff[sp_loaded] <= curr_off[7:0];
-				sp_found <= 1;
-				`PPU_ADDR_INC(1);	
-				mem_req <= 1;						// jumps to x-byte
-			end else if (cycles != 80) begin
-				`PPU_ADDR_INC(4);						// jumps to next sprite in OAM
-				mem_req <= 1;
+	end else if (mem_config == MEM_NO_REQ) begin
+		if (PPU_MODE == PPU_SCAN) begin
+			if (!cycles[0])	begin								// forces alternating clock cycles
+				if (sp_in_range && sp_loaded < 10) begin
+					sp_loaded <= sp_loaded + 1;
+					sp_y_buff[sp_loaded] <= PPU_DATA_in;
+					sp_off_buff[sp_loaded] <= curr_off[7:0];
+					sp_found <= 1;
+					`PPU_ADDR_INC(1);	
+				end else if (cycles != 80) begin
+					`PPU_ADDR_INC(0);						// jumps to next sprite in OAM
+				end
+			end else begin
+				if (sp_found) begin
+					sp_x_buff[sp_loaded - 1] <= PPU_DATA_in;
+					`PPU_ADDR_INC(3);						// jumps to next sprite in OAM
+				end else begin
+					`PPU_ADDR_INC(4);
+				end
+				sp_found <= 0;
 			end
-		end else begin
-			if (sp_found) begin
-				sp_x_buff[sp_loaded - 1] <= PPU_DATA_in;
-				`PPU_ADDR_INC(3);						// jumps to next sprite in OAM
-				mem_req <= 1;
-			end
-			sp_found <= 0;
 		end
-
 	end
 end 
 
