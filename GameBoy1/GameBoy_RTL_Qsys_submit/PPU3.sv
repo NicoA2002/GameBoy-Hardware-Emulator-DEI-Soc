@@ -104,8 +104,8 @@ assign BIG_DATA_in = {8'b0,PPU_DATA_in};
 assign BIG_LY_SCY_MOD = {13'b0, LY[2:0] + SCY[2:0]};
 assign BIG_X = {8'b0,x_pos};
 
-assign sp_in_range = ((LY + 16 >= PPU_DATA_in) &&
-							(LY + 16 < PPU_DATA_in + (8 << LCDC[2])));
+assign sp_in_range = ((LY + SCY + 16 >= PPU_DATA_in) &&
+							(LY + SCY + 16 < PPU_DATA_in + (8 << LCDC[2])));
 assign curr_off = PPU_ADDR - `OAM_BASE_ADDR;
 
 assign sp_real_x = sp_x_buff[sp_ind] - 8;
@@ -325,8 +325,8 @@ end
  * 	Alternate mode support		-
  *  Window						-
  * 	Tall sprites				-
- *  SCX							-
- * 	SCY							-
+ *  SCX							o
+ * 	SCY							o
  * 	X masking					o
  *  Y masking 					o
  * 	Memory usage				o
