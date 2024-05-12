@@ -31,28 +31,43 @@ int main(int argc, const char ** argv, const char ** env)
 	scan_line = tile_row_cnt = tile_toggle = cycles = last_clk = time = exit_code = row_1_loaded = 0;
 
 	for (i = 0; i < 1024; i++)
-		BG_MAP[i] = i % 2;
+		BG_MAP[i] = i % 4;
 
 	for (i = 0; i < 16; i += 2) {
 		TILE_MAP[i] = 0xFF;					// 1111_1111
 		TILE_MAP[i+1] = 0x00;				// 0000_0000
 
-		TILE_MAP[16 + i] = 0xAA;			// 1010_1010
-		TILE_MAP[16 + i + 1] = 0x55;		// 0101_0101
+		TILE_MAP[(16 * 1) + i] = 0xAA;			// 1010_1010
+		TILE_MAP[(16 * 1) + i + 1] = 0x55;		// 0101_0101
 
-		TILE_MAP[16 + 16 + i] = 0xFF;		// "sprite"
-		TILE_MAP[16 + 16 + i + 1] = 0xFF;
+		TILE_MAP[(16 * 4) + i] = 0xFF;		// "sprite"
+		TILE_MAP[(16 * 4) + i + 1] = 0xFF;
 	}
 
-	OAM_MEM[0] = 16;				// (y-value)		16 + pos
-	OAM_MEM[1] = 8 + (8 * 1);		// (x-value)		 8 + pos
-	OAM_MEM[2] = 2;					// (tile no.)
-	OAM_MEM[3] = 0xFF >> 1;				// flags (prio and other things)
+	for (i = 0; i < 16; i += 4) {
+		TILE_MAP[(16 * 2) + i] = 0x96;			// 1001_0110
+		TILE_MAP[(16 * 2) + i + 1] = 0x69;		// 0110_1001
 
-	OAM_MEM[4] = 16 + (8 * 1);				// (y-value)		16 + pos
-	OAM_MEM[5] = 8 + (8 * 2);		// (x-value)		 8 + pos
-	OAM_MEM[6] = 2;					// (tile no.)
-	OAM_MEM[7] = 0xFF >> 1;				// flags (prio and other things)
+		TILE_MAP[(16 * 2) + i + 2] = 0x69;			// 1001_0110
+		TILE_MAP[(16 * 2) + i + 3] = 0x96;			// 0110_1001
+
+		TILE_MAP[(16 * 3) + i] = 0xAA;			// 1001_0110
+		TILE_MAP[(16 * 3) + i + 1] = 0x55;		// 0110_1001
+
+		TILE_MAP[(16 * 3) + i + 2] = 0x55;			// 1001_0110
+		TILE_MAP[(16 * 3) + i + 3] = 0xAA;			// 0110_1001
+	}
+
+	for (i = 0; i < 8; i += 4) {
+		OAM_MEM[0] = 16;				// (y-value)		16 + pos
+		OAM_MEM[1] = 8 + (8 * 1);		// (x-value)		 8 + pos
+
+		OAM_MEM[4] = 16 + (8 * 1);		// (y-value)		16 + pos
+		OAM_MEM[5] = 8 + (8 * 2);		// (x-value)		 8 + pos
+
+		OAM_MEM[i+2] = 4;				// (tile no.)
+		OAM_MEM[7] = 0xFF >> 1;			// flags (prio and other things)
+	}
 
 	Verilated::commandArgs(argc, argv);
 
@@ -86,12 +101,12 @@ int main(int argc, const char ** argv, const char ** env)
 					dut->ADDR = 0xFF40;
 					dut->MMIO_DATA_out = 0xFB;
 					update_reg |= 0x1;
-	    		} else if (!(update_reg & 0x2)) {
+	    		} else if (!(update_reg & 0x2)) { // SCX
 	    			dut->WR = 1;
 	    			dut->ADDR = 0xFF43;
-	    			dut->MMIO_DATA_out = 0x2;
+	    			dut->MMIO_DATA_out = 10;
 	    			update_reg |= 0x2;
-	    		} else if (!(update_reg & 0x4)) {
+	    		} else if (!(update_reg & 0x4)) {	// SCY
 	    			dut->WR = 1;
 	    			dut->ADDR = 0xFF42;
 	    			dut->MMIO_DATA_out = 0x2;

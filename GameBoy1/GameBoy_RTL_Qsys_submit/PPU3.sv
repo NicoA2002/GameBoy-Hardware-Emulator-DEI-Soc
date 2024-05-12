@@ -226,11 +226,12 @@ always_ff @(posedge clk) begin
 		    	end
 				if (LY >= 144) PPU_MODE <= PPU_V_BLANK; 
 			end
-		    PPU_DRAW: 
-		    	if ((x_pos > 160) begin
+		    PPU_DRAW: begin
+		    	if (x_pos > 160) begin
 		    		PPU_MODE <= PPU_H_BLANK;
 		    		draw_en <= 0;
 		    	end
+		    end
 		    PPU_H_BLANK: begin
 		    	if (dots >= 455) begin					// we reached the end of the scanline
 					LY <= LY + 1;
@@ -325,7 +326,7 @@ end
  * 	Alternate mode support		-
  *  Window						-
  * 	Tall sprites				-
- *  SCX							o
+ *  SCX							-
  * 	SCY							-
  * 	X masking					o
  *  Y masking 					o
@@ -348,12 +349,14 @@ always_ff @(posedge clk) begin
 					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY % 8)
 				end
 				BG_ROW_1_LOAD: begin
-					bg_tile_row[0] <= PPU_DATA_in & gen_mask;
+					// bg_tile_row[0] <= PPU_DATA_in & gen_mask;
+					bg_tile_row[0] <= PPU_DATA_in;
 					bg_fetch_mode <= BG_ROW_2_LOAD;
 					`PPU_ADDR_INC(1);
 				end
 				BG_ROW_2_LOAD: begin
-					bg_tile_row[1] <= PPU_DATA_in & gen_mask;
+					// bg_tile_row[1] <= PPU_DATA_in & gen_mask;
+					bg_tile_row[1] <= PPU_DATA_in;
 					bg_fetch_mode <= BG_READY;
 				end
 				default: begin
@@ -407,7 +410,6 @@ always_ff @(posedge clk) begin
 					`PPU_ADDR_INC(1);
 				end
 				SP_ROW_2_LOAD: begin
-
 					sp_tile_row[1] <= PPU_DATA_in & gen_mask;
 					`PPU_ADDR_SET(`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3);
 					sp_fetch_mode <= SP_RUN_BG;
