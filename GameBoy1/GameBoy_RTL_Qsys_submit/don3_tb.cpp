@@ -16,7 +16,7 @@ typedef enum {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 
 int main(int argc, const char ** argv, const char ** env) 
 {
-	int time, exit_code, last_clk, row_1_loaded, cycles, tile_toggle, tile_row_cnt, scan_line, i;
+	int time, exit_code, last_clk, i;
 	char tile_1[2], tile_2[2], tile_3, sprite_data[4], OAM_MEM[160], BG_MAP[1024], TILE_MAP[6144], update_reg;
 	VPPU3 *dut;
 	std::ofstream f("tb_gen.ppm");
@@ -27,45 +27,50 @@ int main(int argc, const char ** argv, const char ** env)
 		return exit_code;
 	}
 	f << "P2\n160 144\n4\n";
-
-	scan_line = tile_row_cnt = tile_toggle = cycles = last_clk = time = exit_code = row_1_loaded = 0;
+   
+    last_clk = time = exit_code == 0;
 
 	for (i = 0; i < 1024; i++)
 		BG_MAP[i] = i % 4;
 
+	BG_MAP[32] = 1;
+
 	for (i = 0; i < 16; i += 2) {
-		TILE_MAP[i] = 0xFF;					// 1111_1111
-		TILE_MAP[i+1] = 0x00;				// 0000_0000
+		TILE_MAP[i] = 0xFF;						// 1111_1111
+		TILE_MAP[i+1] = 0x00;					// 0000_0000
 
 		TILE_MAP[(16 * 1) + i] = 0xAA;			// 1010_1010
 		TILE_MAP[(16 * 1) + i + 1] = 0x55;		// 0101_0101
 
-		TILE_MAP[(16 * 4) + i] = 0xFF;		// "sprite"
-		TILE_MAP[(16 * 4) + i + 1] = 0xFF;
+		TILE_MAP[(16 * 17) + i] = 0xFF;			// "sprite"
+		TILE_MAP[(16 * 17) + i + 1] = 0xFF;
+
+		TILE_MAP[(16 * 16) + i] = 0xFF;			// "sprite"
+		TILE_MAP[(16 * 16) + i + 1] = 0xFF;
 	}
 
 	for (i = 0; i < 16; i += 4) {
-		TILE_MAP[(16 * 2) + i] = 0x96;			// 1001_0110
-		TILE_MAP[(16 * 2) + i + 1] = 0x69;		// 0110_1001
+		TILE_MAP[(16 * 2) + i] = 0x96;				// 1001_0110
+		TILE_MAP[(16 * 2) + i + 1] = 0x69;			// 0110_1001
 
 		TILE_MAP[(16 * 2) + i + 2] = 0x69;			// 1001_0110
 		TILE_MAP[(16 * 2) + i + 3] = 0x96;			// 0110_1001
 
-		TILE_MAP[(16 * 3) + i] = 0xAA;			// 1001_0110
-		TILE_MAP[(16 * 3) + i + 1] = 0x55;		// 0110_1001
+		TILE_MAP[(16 * 3) + i] = 0xAA;				// 1001_0110
+		TILE_MAP[(16 * 3) + i + 1] = 0x55;			// 0110_1001
 
 		TILE_MAP[(16 * 3) + i + 2] = 0x55;			// 1001_0110
 		TILE_MAP[(16 * 3) + i + 3] = 0xAA;			// 0110_1001
 	}
 
 	for (i = 0; i < 8; i += 4) {
-		OAM_MEM[0] = 16;				// (y-value)		16 + pos
-		OAM_MEM[1] = 8 + (8 * 1);		// (x-value)		 8 + pos
+		OAM_MEM[0] = 16 + (8 * 3);		// (y-value)		16 + pos
+		OAM_MEM[1] = 8 + (8 * 0);		// (x-value)		 8 + pos
 
 		OAM_MEM[4] = 16 + (8 * 1);		// (y-value)		16 + pos
 		OAM_MEM[5] = 8 + (8 * 2);		// (x-value)		 8 + pos
 
-		OAM_MEM[i+2] = 4;				// (tile no.)
+		OAM_MEM[i+2] = 0x11;				// (tile no.)
 		OAM_MEM[7] = 0xFF >> 1;			// flags (prio and other things)
 	}
 
@@ -85,35 +90,31 @@ int main(int argc, const char ** argv, const char ** env)
 		// Simulate a 50 MHz clock
 		last_clk = dut->clk;							// used to detect posedge
     	dut->clk = ((time % 20) >= 10) ? 1 : 0;
-		if (dut->clk == 1)
-    		cycles++;
 
     	// Triggers rst
     	dut->rst = (time == 30) ? 1 : 0;
-    	if (dut->rst == 1)
-    		cycles = 0;
 
     	// only on posedge
     	if (dut->clk == 1) {
 	    	if (time > 40) { // after rst
-	    		if (!(update_reg & 0x1)) { // LCDC
+	    		if (!(update_reg & 0x1)) { 			// LCDC
 					dut->WR = 1;
 					dut->ADDR = 0xFF40;
 					dut->MMIO_DATA_out = 0xFB;
+					// dut->MMIO_DATA_out = 0xFF;
 					update_reg |= 0x1;
-	    		} else if (!(update_reg & 0x2)) { // SCX
+	    		} else if (!(update_reg & 0x2)) { 	// SCX
 	    			dut->WR = 1;
 	    			dut->ADDR = 0xFF43;
-	    			dut->MMIO_DATA_out = 10;
+	    			dut->MMIO_DATA_out = 2;
 	    			update_reg |= 0x2;
 	    		} else if (!(update_reg & 0x4)) {	// SCY
 	    			dut->WR = 1;
 	    			dut->ADDR = 0xFF42;
-	    			dut->MMIO_DATA_out = 0x2;
+	    			dut->MMIO_DATA_out = 4;
 	    			update_reg |= 0x4;
 	    		} else
 	    			dut->WR = 0;
-
 	    	}
 
 

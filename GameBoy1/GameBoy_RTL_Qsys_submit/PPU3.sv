@@ -66,6 +66,7 @@ logic [15:0] curr_off;
 logic [3:0] sp_loaded;
 logic sp_in_range;
 logic sp_found;
+logic tts;							// tall tile selector
 logic [15:0] offset_jump;
 
 logic [7:0] sp_y_buff [9:0];
@@ -107,6 +108,8 @@ assign BIG_X = {8'b0,x_pos};
 assign sp_in_range = ((LY + SCY + 16 >= PPU_DATA_in) &&
 							(LY + SCY + 16 < PPU_DATA_in + (8 << LCDC[2])));
 assign curr_off = PPU_ADDR - `OAM_BASE_ADDR;
+assign x_tile_off = (((BIG_X >> 3) + ({8'b0, SCX} >> 3)) & 16'h3FFF);
+assign y_tile_off = (((({8'h0, LY} + {8'h0, SCY}) & 16'hFF) >> 3) << 5) & 16'h3FFF;
 
 assign sp_real_x = sp_x_buff[sp_ind] - 8;
 
@@ -154,7 +157,7 @@ assign WX = FF4B;
 /*
  *  Interrupt Assigns
 */
-assign IRQ_PPU_V_BLANK = PPU_MODE == PPU_V_BLANK;
+assign IRQ_PPU_V_BLANK = (PPU_MODE == PPU_V_BLANK);
 assign IRQ_LCDC = (STAT[2] && STAT[6]) || (STAT[3] & ~|STAT[1:0]) || (STAT[4] & ~STAT[1] & STAT[0]) || (STAT[5] & STAT[1] & ~STAT[0]);  
 
 
@@ -330,7 +333,7 @@ end
  * 	X masking					o
  *  Y masking 					o
  * 	Memory usage				o
- *  Vblank interrupts			-
+ *  Vblank interrupts			o
  *	PPU extra Regs/interrupts	-
  *
  */
@@ -372,10 +375,6 @@ end
  *	State machine iterates through detected sprites for a PPU_scanline,
  *	loads the rows into the sp_fifo and switches the bg drawing on
 */
-
-assign x_tile_off = (((BIG_X >> 3) + ({8'b0, SCX} >> 3)) & 16'h3FFF);
-assign y_tile_off = (((({8'h0, LY} + {8'h0, SCY}) & 16'hFF) >> 3) << 5) & 16'h3FFF;
-
 always_ff @(posedge clk) begin
 	if (rst) begin
 		sp_ind <= 0;
@@ -398,6 +397,13 @@ always_ff @(posedge clk) begin
 						else if (sp_real_x + 8 > x_pos && sp_real_x + 8 < x_pos + 8) sp_mask <= 8'hFF << (x_pos - sp_real_x);
 						else sp_mask <= 8'hFF;
 
+						tts <= 1;
+						/* For tall sprites */
+						if (LCDC[2]) begin
+							if (LY + 16 < sp_y_buff[sp_ind] + 16) tts <= 0;
+							else tts <= 1;
+						end
+
 					end else sp_ind <= sp_ind + 1;
 
 					if (sp_ind == 9) begin
@@ -408,7 +414,7 @@ always_ff @(posedge clk) begin
 				end
 				SP_TILE_LOAD: begin
 					sp_mask <= sp_mask & gen_mask;
-					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));
+					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + ({BIG_DATA_in[15:1], tts} << 4));
 					sp_fetch_mode <= SP_ROW_1_LOAD;
 				end
 				SP_ROW_1_LOAD: begin
