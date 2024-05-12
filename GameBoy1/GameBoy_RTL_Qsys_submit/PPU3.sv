@@ -227,7 +227,7 @@ always_ff @(posedge clk) begin
 				if (LY >= 144) PPU_MODE <= PPU_V_BLANK; 
 			end
 		    PPU_DRAW: 
-		    	if ((x_pos > 160 && SCX == 0) || x_pos > 168) begin
+		    	if ((x_pos > 160) begin
 		    		PPU_MODE <= PPU_H_BLANK;
 		    		draw_en <= 0;
 		    	end
@@ -373,9 +373,6 @@ always_ff @(posedge clk) begin
 		sp_ind <= 0;
 	end	else if (mem_config == MEM_NO_REQ) begin
 		if (PPU_MODE == PPU_DRAW) begin
-			if (tile_c == 0 && SCX != 0) gen_mask <= 8'hFF >> SCX[2:0];
-			else if (tile_c == 20 && SCX != 0) gen_mask <= ~(8'hFF << SCX[2:0]);
-			else gen_mask <= 8'hFF;
 			case (sp_fetch_mode)
 				SP_SEARCH: begin
 					if (sp_x_buff[sp_ind] >= 8 &&
@@ -433,7 +430,7 @@ always_ff @(posedge clk) begin
 end
 
 assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
-assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160 || (x_pos <= 168 && SCX != 0));
+assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160);
 
 logic [7:0] cnt;
 
