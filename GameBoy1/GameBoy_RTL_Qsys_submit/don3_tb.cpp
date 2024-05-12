@@ -17,7 +17,7 @@ typedef enum {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 int main(int argc, const char ** argv, const char ** env) 
 {
 	int time, exit_code, last_clk, row_1_loaded, cycles, tile_toggle, tile_row_cnt, scan_line, i;
-	char LCDC, tile_1[2], tile_2[2], tile_3, sprite_data[4], OAM_MEM[160], BG_MAP[1024], TILE_MAP[6144];
+	char tile_1[2], tile_2[2], tile_3, sprite_data[4], OAM_MEM[160], BG_MAP[1024], TILE_MAP[6144], update_reg;
 	VPPU3 *dut;
 	std::ofstream f("tb_gen.ppm");
 
@@ -64,13 +64,9 @@ int main(int argc, const char ** argv, const char ** env)
 	dut->trace(tfp, 99);
 	tfp->open("ppu3.vcd");
 
-	LCDC = 0xFB;
-	dut->WR = 1;
-	dut->ADDR = 0xFF40;
-	dut->MMIO_DATA_out = LCDC;
-
 	dut->PPU_DATA_in = 0x0;	// JUNK
-	for (time = 0 ; time < 2334300 ; time += 10) {
+
+	for (time = 0 ; time < 2272110 ; time += 10) {
 		// Simulate a 50 MHz clock
 		last_clk = dut->clk;							// used to detect posedge
     	dut->clk = ((time % 20) >= 10) ? 1 : 0;
@@ -82,8 +78,30 @@ int main(int argc, const char ** argv, const char ** env)
     	if (dut->rst == 1)
     		cycles = 0;
 
+    	// only on posedge
     	if (dut->clk == 1) {
-	    	// std::cout << std::hex << dut->PPU_ADDR << ", "  << (dut->PPU_ADDR >= OAM_BASE_ADDR && dut->PPU_ADDR < OAM_BASE_ADDR + 160) << std::endl;
+	    	if (time > 40) { // after rst
+	    		if (!(update_reg & 0x1)) { // LCDC
+					dut->WR = 1;
+					dut->ADDR = 0xFF40;
+					dut->MMIO_DATA_out = 0xFB;
+					update_reg |= 0x1;
+	    		} else if (!(update_reg & 0x2)) {
+	    			dut->WR = 1;
+	    			dut->ADDR = 0xFF43;
+	    			dut->MMIO_DATA_out = 0x2;
+	    			update_reg |= 0x2;
+	    		} else if (!(update_reg & 0x4)) {
+	    			dut->WR = 1;
+	    			dut->ADDR = 0xFF42;
+	    			dut->MMIO_DATA_out = 0x2;
+	    			update_reg |= 0x4;
+	    		} else
+	    			dut->WR = 0;
+
+	    	}
+
+
 			if (dut->PPU_ADDR >= OAM_BASE_ADDR && dut->PPU_ADDR < OAM_BASE_ADDR + 160)
 				dut->PPU_DATA_in = OAM_MEM[dut->PPU_ADDR - OAM_BASE_ADDR];
 			else if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR <= BG_MAP_1_END_ADDR)

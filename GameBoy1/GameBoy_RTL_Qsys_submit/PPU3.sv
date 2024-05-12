@@ -49,7 +49,6 @@ module PPU3
     
     output logic [1:0] PX_OUT,
     output logic PX_valid 
-    // output logic [7:0] DEBUG_FLAG
 );
 
 /* Extensions */
@@ -57,7 +56,7 @@ logic [15:0] BIG_DATA_in, BIG_LY, BIG_X;
 
 /* Scanline tracking */
 logic [7:0] LY, x_pos;  // x-pos in range [0, 159]
-logic [8:0] cycles;
+logic [8:0] dots;
 logic [15:0] tile_c;
 logic [3:0] pixels_pushed;
 
@@ -86,10 +85,12 @@ logic [7:0] sp_real_x;		// used to account for the 16 offset
 logic [3:0] sp_ind;
 logic [2:0] sp_fetch_mode;
 logic [7:0] sp_tile_row [1:0];
-logic unsigned [7:0] sp_mask;
+
+logic unsigned [7:0] gen_mask;
 
 /* Pixel mixing */
 logic ready_load;
+logic draw_en;					// old PX_Valid, left in as a legacy but unused
 logic [1:0] bg_out;
 logic [1:0] sp_out;
 logic [2:0] px_mix_mode;
@@ -99,7 +100,7 @@ logic [2:0] mem_config;
 
 /* Assigns */
 assign BIG_DATA_in = {8'b0,PPU_DATA_in};
-assign BIG_LY = {13'b0, LY[2:0]};
+assign BIG_LY = {13'b0, LY[2:0] + SCY[2:0]};
 assign BIG_X = {8'b0,x_pos};
 
 assign sp_in_range = ((LY + 16 >= PPU_DATA_in) &&
@@ -201,22 +202,19 @@ end
 
 /* -- State Switching machine -- */
 always_ff @(posedge clk) begin
-	// if ((LY >= 8 && LY < 16) && (x_pos >= 8 && x_pos < 16) && cycles == 95) DEBUG_FLAG <= 3;
-	// else if ((LY >= 16 && LY < 24) && (x_pos >= 24 && x_pos < 32) && cycles == 127) DEBUG_FLAG <= 4;
-	// else DEBUG_FLAG <= 0;
 
     if (rst) begin
 			x_pos <= 0;
-			cycles <= 0;
+			dots <= 0;
 			LY <= 0;
 			`PPU_ADDR_SET(`OAM_BASE_ADDR);
 			PPU_MODE <= PPU_SCAN;
     end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
-    	cycles <= cycles + 1;
-		/* -- Following block happens on a per scanline basis (456 cycles per line) -- */
+    	dots <= dots + 1;
+		/* -- Following block happens on a per scanline basis (456 dots per line) -- */
         case (PPU_MODE)
             PPU_SCAN: begin
-	    		if (cycles == 79) begin
+	    		if (dots == 79) begin
 					PPU_MODE <= PPU_DRAW;
 					ready_load <= 1;
 					pixels_pushed <= 1;
@@ -229,13 +227,12 @@ always_ff @(posedge clk) begin
 				if (LY >= 144) PPU_MODE <= PPU_V_BLANK; 
 			end
 		    PPU_DRAW: 
-		    	if (x_pos > 160) begin
+		    	if ((x_pos > 160 && SCX == 0) || x_pos > 168) begin
 		    		PPU_MODE <= PPU_H_BLANK;
-		    		PX_valid <= 0;
+		    		draw_en <= 0;
 		    	end
 		    PPU_H_BLANK: begin
-		    	// if (cycles == 454) DEBUG_FLAG <= 2;			// DEBUG_FLAG
-		    	if (cycles >= 455) begin					// we reached the end of the scanline
+		    	if (dots >= 455) begin					// we reached the end of the scanline
 					LY <= LY + 1;
 
 					for (int i = 0; i < 10; i++) begin
@@ -245,17 +242,15 @@ always_ff @(posedge clk) begin
 			        end
 					x_pos <= 0;
 					sp_loaded <= 0;
-					cycles <= 0;
+					dots <= 0;
 					PPU_MODE <= PPU_SCAN;
-					// PPU_ADDR <= `OAM_BASE_ADDR;
 					`PPU_ADDR_SET(`OAM_BASE_ADDR);
-					// DEBUG_FLAG <= 0;
 				end
 			end
 		    PPU_V_BLANK: begin
-				if (cycles >= 455) begin		// we reached the end of the scanline
+				if (dots >= 455) begin		// we reached the end of the scanline
 					LY <= LY + 1;
-					cycles <= 0;
+					dots <= 0;
 					if (LY >= `MAX_LY) begin
 						LY <= 0;
 						PPU_MODE <= PPU_SCAN;
@@ -272,21 +267,23 @@ end
  */ 
 always_comb
 begin
-    case (ADDR)
-        16'hFF40: MMIO_DATA_in = FF40;
-        16'hFF41: MMIO_DATA_in = {1'b1, FF41[6:0]};
-        16'hFF42: MMIO_DATA_in = FF42;
-        16'hFF43: MMIO_DATA_in = FF43;
-        16'hFF44: MMIO_DATA_in = FF44;
-        16'hFF45: MMIO_DATA_in = FF45;
-        16'hFF46: MMIO_DATA_in = FF46;
-        16'hFF47: MMIO_DATA_in = FF47;
-        16'hFF48: MMIO_DATA_in = FF48;
-        16'hFF49: MMIO_DATA_in = FF49;
-        16'hFF4A: MMIO_DATA_in = FF4A;
-        16'hFF4B: MMIO_DATA_in = FF4B;
-        default : MMIO_DATA_in = 8'hFF;
-    endcase
+	if (RD) begin
+	    case (ADDR)
+	        16'hFF40: MMIO_DATA_in = FF40;
+	        16'hFF41: MMIO_DATA_in = {1'b1, FF41[6:0]};
+	        16'hFF42: MMIO_DATA_in = FF42;
+	        16'hFF43: MMIO_DATA_in = FF43;
+	        16'hFF44: MMIO_DATA_in = FF44;
+	        16'hFF45: MMIO_DATA_in = FF45;
+	        16'hFF46: MMIO_DATA_in = FF46;
+	        16'hFF47: MMIO_DATA_in = FF47;
+	        16'hFF48: MMIO_DATA_in = FF48;
+	        16'hFF49: MMIO_DATA_in = FF49;
+	        16'hFF4A: MMIO_DATA_in = FF4A;
+	        16'hFF4B: MMIO_DATA_in = FF4B;
+	        default : MMIO_DATA_in = 8'hFF;
+	    endcase
+	end
 end
 
 /* -- OAM Scan State Machine -- */
@@ -296,20 +293,20 @@ always_ff @(posedge clk) begin
 		sp_found <= 0;
 	end else if (mem_config == MEM_NO_REQ) begin
 		if (PPU_MODE == PPU_SCAN) begin
-			if (!cycles[0])	begin								// forces alternating clock cycles
+			if (!dots[0]) begin									// forces alternating clock dots
 				if (sp_in_range && sp_loaded < 10) begin
 					sp_loaded <= sp_loaded + 1;
 					sp_y_buff[sp_loaded] <= PPU_DATA_in;
 					sp_off_buff[sp_loaded] <= curr_off[7:0];
 					sp_found <= 1;
 					`PPU_ADDR_INC(1);	
-				end else if (cycles != 80) begin
-					`PPU_ADDR_INC(0);						// jumps to next sprite in OAM
+				end else if (dots != 80) begin
+					`PPU_ADDR_INC(0);							// jumps to next sprite in OAM
 				end
 			end else begin
 				if (sp_found) begin
 					sp_x_buff[sp_loaded - 1] <= PPU_DATA_in;
-					`PPU_ADDR_INC(3);						// jumps to next sprite in OAM
+					`PPU_ADDR_INC(3);							// jumps to next sprite in OAM
 				end else begin
 					`PPU_ADDR_INC(4);
 				end
@@ -324,15 +321,17 @@ end
  * We'll need to implement
  *  Proper pixel mixing			o 
  *  Interrupts					o 
- * 	LCDC flags 
- * 	Alternate mode support
- * 	Tall sprites
- *  SCX and SCY
+ * 	LCDC flags 					-
+ * 	Alternate mode support		-
+ *  Window						-
+ * 	Tall sprites				-
+ *  SCX							o
+ * 	SCY							-
  * 	X masking					o
  *  Y masking 					o
  * 	Memory usage				o
- *  Vblank interrupt
- *	PPU extra signals (RD)
+ *  Vblank interrupts			-
+ *	PPU extra Regs/interrupts	-
  *
  */
 
@@ -349,12 +348,12 @@ always_ff @(posedge clk) begin
 					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY % 8)
 				end
 				BG_ROW_1_LOAD: begin
-					bg_tile_row[0] <= PPU_DATA_in;
+					bg_tile_row[0] <= PPU_DATA_in & gen_mask;
 					bg_fetch_mode <= BG_ROW_2_LOAD;
 					`PPU_ADDR_INC(1);
 				end
 				BG_ROW_2_LOAD: begin
-					bg_tile_row[1] <= PPU_DATA_in;
+					bg_tile_row[1] <= PPU_DATA_in & gen_mask;
 					bg_fetch_mode <= BG_READY;
 				end
 				default: begin
@@ -374,54 +373,54 @@ always_ff @(posedge clk) begin
 		sp_ind <= 0;
 	end	else if (mem_config == MEM_NO_REQ) begin
 		if (PPU_MODE == PPU_DRAW) begin
+			if (tile_c == 0 && SCX != 0) gen_mask <= 8'hFF >> SCX[2:0];
+			else if (tile_c == 20 && SCX != 0) gen_mask <= ~(8'hFF << SCX[2:0]);
+			else gen_mask <= 8'hFF;
 			case (sp_fetch_mode)
 				SP_SEARCH: begin
 					if (sp_x_buff[sp_ind] >= 8 &&
 							((sp_real_x >= x_pos && sp_real_x < x_pos + 8) || 
 							  sp_real_x + 8 > x_pos && sp_real_x + 8 <= x_pos + 8)) begin			// end of sprite in tile
-						// PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2;			// points to tile no. of sprite
+
 						`PPU_ADDR_SET(`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2);
 						sp_fetch_mode <= SP_TILE_LOAD;	
 						
-						if (sp_real_x > x_pos && sp_real_x < x_pos + 8) sp_mask <= 8'hFF >> (x_pos + 6 - sp_real_x);
-						else if (sp_real_x + 8 > x_pos && sp_real_x + 8 < x_pos + 8) sp_mask <= 8'hFF << (x_pos - sp_real_x);
-						else sp_mask <= 8'hFF;
+
+						if (sp_real_x > x_pos && sp_real_x < x_pos + 8) gen_mask <= 8'hFF >> (x_pos + 6 - sp_real_x);
+
+						else if (sp_real_x + 8 > x_pos && sp_real_x + 8 < x_pos + 8) gen_mask <= 8'hFF << (x_pos - sp_real_x);
+
+						else gen_mask <= 8'hFF;
 
 					end else sp_ind <= sp_ind + 1;
 
 					if (sp_ind == 9) begin
 						sp_fetch_mode <= SP_RUN_BG;
-						// DEBUG_FLAG <= 1;
 						sp_tile_row[0] <= 0;
 						sp_tile_row[1] <= 0;
 					end
 				end
 				SP_TILE_LOAD: begin
-					// PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);					// load in tile data
 					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4));
 					sp_fetch_mode <= SP_ROW_1_LOAD;
 				end
 				SP_ROW_1_LOAD: begin
-					sp_tile_row[0] <= PPU_DATA_in & sp_mask;
+					sp_tile_row[0] <= PPU_DATA_in & gen_mask;
 					sp_fetch_mode <= SP_ROW_2_LOAD;
-					// DEBUG_FLAG <= 5;
 					`PPU_ADDR_INC(1);
 				end
 				SP_ROW_2_LOAD: begin
-					sp_tile_row[1] <= PPU_DATA_in & sp_mask;
-					// PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3;	// grabs sprite flags
+
+					sp_tile_row[1] <= PPU_DATA_in & gen_mask;
 					`PPU_ADDR_SET(`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3);
 					sp_fetch_mode <= SP_RUN_BG;
-					// DEBUG_FLAG <= 1;
 				end
 				SP_RUN_BG: begin
 					sp_ind <= 0;
 					curr_sp_flag <= PPU_DATA_in;
 					bg_fetch_mode <= BG_TILE_NO_STORE;
-					// PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
 					`PPU_ADDR_SET(`BG_MAP_1_BASE_ADDR + tile_c);
 					sp_fetch_mode <= SP_READY;
-					// DEBUG_FLAG <= 0;
 				end
 				SP_READY: begin
 					//check to see if new sprite should be rendered
@@ -434,21 +433,26 @@ always_ff @(posedge clk) begin
 end
 
 assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
+assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160 || (x_pos <= 168 && SCX != 0));
+
+logic [7:0] cnt;
 
 /* Pixel Mixing & Output Machine */ 
 always_ff @(posedge clk) begin
 	if (rst) begin
 		ready_load <= 1;
+		cnt <= 0;
 	end else if (PPU_MODE == PPU_DRAW) begin
+		if (PX_valid) cnt <= cnt + 1;
 		case (px_mix_mode)
 			MIX_LOAD: begin
 					if (!ready_load) begin
 						pixels_pushed <= pixels_pushed - 1;
-						PX_valid <= 1;
+						draw_en <= 1;
 					end
 
 					if (pixels_pushed == 1) begin
-						PX_valid <= 0;
+						draw_en <= 0;
 						if ((sp_fetch_mode == SP_READY) && (bg_fetch_mode == BG_READY)) begin
 							// load both buffers into fifos
 							bg_fifo_load <= 1;
@@ -460,7 +464,7 @@ always_ff @(posedge clk) begin
 
 							px_mix_mode <= MIX_START;
 
-							PX_valid <= 0;
+							draw_en <= 0;
 							tile_c <= tile_c + 1;
 							x_pos <= x_pos + 8;
 						end
@@ -469,7 +473,7 @@ always_ff @(posedge clk) begin
 					if (pixels_pushed == 0) begin
 						pixels_pushed <= 1;
 						ready_load <= 1;
-						PX_valid <= 0;
+						draw_en <= 0;
 					end
 				end
 				MIX_START: begin
@@ -479,7 +483,7 @@ always_ff @(posedge clk) begin
 					bg_fifo_go <= 1;
 					sp_fifo_go <= 1;
 
-					if (x_pos <= 160) PX_valid <= 1;
+					if (x_pos <= 160) draw_en <= 1;
 
 					pixels_pushed <= 8; 
 					ready_load <= 0;
