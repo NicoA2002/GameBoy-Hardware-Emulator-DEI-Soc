@@ -52,13 +52,14 @@ module PPU3
 );
 
 /* Extensions */
-logic [15:0] BIG_DATA_in, BIG_LY, BIG_X;
+logic [15:0] BIG_DATA_in, BIG_LY_SCY_MOD, BIG_X;
 
 /* Scanline tracking */
 logic [7:0] LY, x_pos;  // x-pos in range [0, 159]
 logic [8:0] dots;
-logic [15:0] tile_c;
 logic [3:0] pixels_pushed;
+logic [15:0] x_tile_off;
+logic [15:0] y_tile_off;
 
 /* Sprite OAM Scan vars */
 logic [15:0] curr_off;
@@ -90,7 +91,6 @@ logic unsigned [7:0] gen_mask;
 
 /* Pixel mixing */
 logic ready_load;
-logic draw_en;					// old PX_Valid, left in as a legacy but unused
 logic [1:0] bg_out;
 logic [1:0] sp_out;
 logic [2:0] px_mix_mode;
@@ -100,7 +100,7 @@ logic [2:0] mem_config;
 
 /* Assigns */
 assign BIG_DATA_in = {8'b0,PPU_DATA_in};
-assign BIG_LY = {13'b0, LY[2:0] + SCY[2:0]};
+assign BIG_LY_SCY_MOD = {13'b0, LY[2:0] + SCY[2:0]};
 assign BIG_X = {8'b0,x_pos};
 
 assign sp_in_range = ((LY + 16 >= PPU_DATA_in) &&
@@ -218,7 +218,6 @@ always_ff @(posedge clk) begin
 					PPU_MODE <= PPU_DRAW;
 					ready_load <= 1;
 					pixels_pushed <= 1;
-					tile_c <= BIG_LY >> 3;
 					x_pos <= 0;
 					
 					bg_fetch_mode <= BG_PAUSE;
@@ -229,7 +228,6 @@ always_ff @(posedge clk) begin
 		    PPU_DRAW: begin
 		    	if (x_pos > 160) begin
 		    		PPU_MODE <= PPU_H_BLANK;
-		    		draw_en <= 0;
 		    	end
 		    end
 		    PPU_H_BLANK: begin
@@ -340,13 +338,12 @@ end
 always_ff @(posedge clk) begin
 	if (rst) begin
 		pixels_pushed <= 1;
-		tile_c <= 1;
 	end else if (mem_config == MEM_NO_REQ) begin
 		if (PPU_MODE == PPU_DRAW) begin
 			case (bg_fetch_mode)
 				BG_TILE_NO_STORE: begin
 					bg_fetch_mode <= BG_ROW_1_LOAD;
-					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY % 8)
+					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
 				end
 				BG_ROW_1_LOAD: begin
 					// bg_tile_row[0] <= PPU_DATA_in & gen_mask;
@@ -371,6 +368,10 @@ end
  *	State machine iterates through detected sprites for a PPU_scanline,
  *	loads the rows into the sp_fifo and switches the bg drawing on
 */
+
+assign x_tile_off = (((BIG_X >> 3) + ({8'b0, SCX} >> 3)) & 16'h3FFF);
+assign y_tile_off = (((({8'h0, LY} + {8'h0, SCY}) & 16'hFF) >> 3) << 5) & 16'h3FFF;
+
 always_ff @(posedge clk) begin
 	if (rst) begin
 		sp_ind <= 0;
@@ -401,7 +402,7 @@ always_ff @(posedge clk) begin
 					end
 				end
 				SP_TILE_LOAD: begin
-					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4));
+					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));
 					sp_fetch_mode <= SP_ROW_1_LOAD;
 				end
 				SP_ROW_1_LOAD: begin
@@ -418,7 +419,7 @@ always_ff @(posedge clk) begin
 					sp_ind <= 0;
 					curr_sp_flag <= PPU_DATA_in;
 					bg_fetch_mode <= BG_TILE_NO_STORE;
-					`PPU_ADDR_SET(`BG_MAP_1_BASE_ADDR + tile_c);
+					`PPU_ADDR_SET(`BG_MAP_1_BASE_ADDR + x_tile_off + y_tile_off);
 					sp_fetch_mode <= SP_READY;
 				end
 				SP_READY: begin
@@ -434,24 +435,18 @@ end
 assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
 assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160);
 
-logic [7:0] cnt;
-
 /* Pixel Mixing & Output Machine */ 
 always_ff @(posedge clk) begin
 	if (rst) begin
 		ready_load <= 1;
-		cnt <= 0;
 	end else if (PPU_MODE == PPU_DRAW) begin
-		if (PX_valid) cnt <= cnt + 1;
 		case (px_mix_mode)
 			MIX_LOAD: begin
 					if (!ready_load) begin
 						pixels_pushed <= pixels_pushed - 1;
-						draw_en <= 1;
 					end
 
 					if (pixels_pushed == 1) begin
-						draw_en <= 0;
 						if ((sp_fetch_mode == SP_READY) && (bg_fetch_mode == BG_READY)) begin
 							// load both buffers into fifos
 							bg_fifo_load <= 1;
@@ -463,8 +458,6 @@ always_ff @(posedge clk) begin
 
 							px_mix_mode <= MIX_START;
 
-							draw_en <= 0;
-							tile_c <= tile_c + 1;
 							x_pos <= x_pos + 8;
 						end
 					end
@@ -472,7 +465,6 @@ always_ff @(posedge clk) begin
 					if (pixels_pushed == 0) begin
 						pixels_pushed <= 1;
 						ready_load <= 1;
-						draw_en <= 0;
 					end
 				end
 				MIX_START: begin
@@ -482,7 +474,6 @@ always_ff @(posedge clk) begin
 					bg_fifo_go <= 1;
 					sp_fifo_go <= 1;
 
-					if (x_pos <= 160) draw_en <= 1;
 
 					pixels_pushed <= 8; 
 					ready_load <= 0;
