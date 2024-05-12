@@ -246,7 +246,8 @@ always_ff @(posedge clk) begin
 					sp_loaded <= 0;
 					cycles <= 0;
 					PPU_MODE <= PPU_SCAN;
-					PPU_ADDR <= `OAM_BASE_ADDR;
+					// PPU_ADDR <= `OAM_BASE_ADDR;
+					`PPU_ADDR_SET(`OAM_BASE_ADDR);
 					// DEBUG_FLAG <= 0;
 				end
 			end
@@ -328,7 +329,7 @@ end
  *  SCX and SCY
  * 	X masking					o
  *  Y masking 					o
- * 		(handled by scanlines but tested anyways)
+ * 	Memory usage				o
  *
  */
 
@@ -337,25 +338,26 @@ always_ff @(posedge clk) begin
 	if (rst) begin
 		pixels_pushed <= 1;
 		tile_c <= 1;
-	end
-	if (PPU_MODE == PPU_DRAW) begin
-		case (bg_fetch_mode)
-			BG_TILE_NO_STORE: begin
-				bg_fetch_mode <= BG_ROW_1_LOAD;
-				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);	// tile_base + (16 * tile_no) + 2 * (LY % 8)
-			end
-			BG_ROW_1_LOAD: begin
-				bg_tile_row[0] <= PPU_DATA_in;
-				bg_fetch_mode <= BG_ROW_2_LOAD;
-				`PPU_ADDR_INC(1);
-			end
-			BG_ROW_2_LOAD: begin
-				bg_tile_row[1] <= PPU_DATA_in;
-				bg_fetch_mode <= BG_READY;
-			end
-			default: begin
-			end
-		endcase
+	end else if (mem_config == MEM_NO_REQ) begin
+		if (PPU_MODE == PPU_DRAW) begin
+			case (bg_fetch_mode)
+				BG_TILE_NO_STORE: begin
+					bg_fetch_mode <= BG_ROW_1_LOAD;
+					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY % 8)
+				end
+				BG_ROW_1_LOAD: begin
+					bg_tile_row[0] <= PPU_DATA_in;
+					bg_fetch_mode <= BG_ROW_2_LOAD;
+					`PPU_ADDR_INC(1);
+				end
+				BG_ROW_2_LOAD: begin
+					bg_tile_row[1] <= PPU_DATA_in;
+					bg_fetch_mode <= BG_READY;
+				end
+				default: begin
+				end
+			endcase
+		end
 	end
 end
 
@@ -367,59 +369,64 @@ end
 always_ff @(posedge clk) begin
 	if (rst) begin
 		sp_ind <= 0;
-	end
-	if (PPU_MODE == PPU_DRAW) begin
-		case (sp_fetch_mode)
-			SP_SEARCH: begin
-				if (sp_x_buff[sp_ind] >= 8 &&
-						((sp_real_x >= x_pos && sp_real_x < x_pos + 8) || 
-						  sp_real_x + 8 > x_pos && sp_real_x + 8 <= x_pos + 8)) begin			// end of sprite in tile
-					PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2;			// points to tile no. of sprite
-					sp_fetch_mode <= SP_TILE_LOAD;	
-					
-					if (sp_real_x > x_pos && sp_real_x < x_pos + 8) sp_mask <= 8'hFF >> (x_pos + 6 - sp_real_x);
-					else if (sp_real_x + 8 > x_pos && sp_real_x + 8 < x_pos + 8) sp_mask <= 8'hFF << (x_pos - sp_real_x);
-					else sp_mask <= 8'hFF;
+	end	else if (mem_config == MEM_NO_REQ) begin
+		if (PPU_MODE == PPU_DRAW) begin
+			case (sp_fetch_mode)
+				SP_SEARCH: begin
+					if (sp_x_buff[sp_ind] >= 8 &&
+							((sp_real_x >= x_pos && sp_real_x < x_pos + 8) || 
+							  sp_real_x + 8 > x_pos && sp_real_x + 8 <= x_pos + 8)) begin			// end of sprite in tile
+						// PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2;			// points to tile no. of sprite
+						`PPU_ADDR_SET(`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2);
+						sp_fetch_mode <= SP_TILE_LOAD;	
+						
+						if (sp_real_x > x_pos && sp_real_x < x_pos + 8) sp_mask <= 8'hFF >> (x_pos + 6 - sp_real_x);
+						else if (sp_real_x + 8 > x_pos && sp_real_x + 8 < x_pos + 8) sp_mask <= 8'hFF << (x_pos - sp_real_x);
+						else sp_mask <= 8'hFF;
 
-				end else sp_ind <= sp_ind + 1;
+					end else sp_ind <= sp_ind + 1;
 
-				if (sp_ind == 9) begin
+					if (sp_ind == 9) begin
+						sp_fetch_mode <= SP_RUN_BG;
+						// DEBUG_FLAG <= 1;
+						sp_tile_row[0] <= 0;
+						sp_tile_row[1] <= 0;
+					end
+				end
+				SP_TILE_LOAD: begin
+					// PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);					// load in tile data
+					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4));
+					sp_fetch_mode <= SP_ROW_1_LOAD;
+				end
+				SP_ROW_1_LOAD: begin
+					sp_tile_row[0] <= PPU_DATA_in & sp_mask;
+					sp_fetch_mode <= SP_ROW_2_LOAD;
+					// DEBUG_FLAG <= 5;
+					`PPU_ADDR_INC(1);
+				end
+				SP_ROW_2_LOAD: begin
+					sp_tile_row[1] <= PPU_DATA_in & sp_mask;
+					// PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3;	// grabs sprite flags
+					`PPU_ADDR_SET(`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3);
 					sp_fetch_mode <= SP_RUN_BG;
 					// DEBUG_FLAG <= 1;
-					sp_tile_row[0] <= 0;
-					sp_tile_row[1] <= 0;
 				end
-			end
-			SP_TILE_LOAD: begin
-				PPU_ADDR <= `TILE_BASE + (BIG_LY << 1) + (BIG_DATA_in << 4);					// load in tile data
-				sp_fetch_mode <= SP_ROW_1_LOAD;
-			end
-			SP_ROW_1_LOAD: begin
-				sp_tile_row[0] <= PPU_DATA_in & sp_mask;
-				sp_fetch_mode <= SP_ROW_2_LOAD;
-				// DEBUG_FLAG <= 5;
-				`PPU_ADDR_INC(1);
-			end
-			SP_ROW_2_LOAD: begin
-				sp_tile_row[1] <= PPU_DATA_in & sp_mask;
-				PPU_ADDR <= `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3;	// grabs sprite flags
-				sp_fetch_mode <= SP_RUN_BG;
-				// DEBUG_FLAG <= 1;
-			end
-			SP_RUN_BG: begin
-				sp_ind <= 0;
-				curr_sp_flag <= PPU_DATA_in;
-				bg_fetch_mode <= BG_TILE_NO_STORE;
-				PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
-				sp_fetch_mode <= SP_READY;
-				// DEBUG_FLAG <= 0;
-			end
-			SP_READY: begin
-				//check to see if new sprite should be rendered
-			end
-			default: begin
-			end
-		endcase
+				SP_RUN_BG: begin
+					sp_ind <= 0;
+					curr_sp_flag <= PPU_DATA_in;
+					bg_fetch_mode <= BG_TILE_NO_STORE;
+					// PPU_ADDR <= `BG_MAP_1_BASE_ADDR + tile_c;
+					`PPU_ADDR_SET(`BG_MAP_1_BASE_ADDR + tile_c);
+					sp_fetch_mode <= SP_READY;
+					// DEBUG_FLAG <= 0;
+				end
+				SP_READY: begin
+					//check to see if new sprite should be rendered
+				end
+				default: begin
+				end
+			endcase
+		end
 	end
 end
 

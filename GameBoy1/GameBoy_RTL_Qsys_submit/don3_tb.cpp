@@ -30,10 +30,10 @@ int main(int argc, const char ** argv, const char ** env)
 
 	scan_line = tile_row_cnt = tile_toggle = cycles = last_clk = time = exit_code = row_1_loaded = 0;
 
-	for (i = 0; i < 1024; i += 2)
+	for (i = 0; i < 1024; i++)
 		BG_MAP[i] = i % 2;
 
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < 16; i += 2) {
 		TILE_MAP[i] = 0xFF;					// 1111_1111
 		TILE_MAP[i+1] = 0x00;				// 0000_0000
 
@@ -45,9 +45,14 @@ int main(int argc, const char ** argv, const char ** env)
 	}
 
 	OAM_MEM[0] = 16;				// (y-value)		16 + pos
-	OAM_MEM[1] = 8 + (8 * 0);		// (x-value)		 8 + pos
+	OAM_MEM[1] = 8 + (8 * 1);		// (x-value)		 8 + pos
 	OAM_MEM[2] = 2;					// (tile no.)
-	OAM_MEM[3] = 0xFF;				// flags (prio and other things)
+	OAM_MEM[3] = 0xFF >> 1;				// flags (prio and other things)
+
+	OAM_MEM[4] = 16 + (8 * 1);				// (y-value)		16 + pos
+	OAM_MEM[5] = 8 + (8 * 2);		// (x-value)		 8 + pos
+	OAM_MEM[6] = 2;					// (tile no.)
+	OAM_MEM[7] = 0xFF >> 1;				// flags (prio and other things)
 
 	Verilated::commandArgs(argc, argv);
 
@@ -65,7 +70,7 @@ int main(int argc, const char ** argv, const char ** env)
 	dut->MMIO_DATA_out = LCDC;
 
 	dut->PPU_DATA_in = 0x0;	// JUNK
-	for (time = 0 ; time < 1368000 ; time += 10) {
+	for (time = 0 ; time < 2334300 ; time += 10) {
 		// Simulate a 50 MHz clock
 		last_clk = dut->clk;							// used to detect posedge
     	dut->clk = ((time % 20) >= 10) ? 1 : 0;
