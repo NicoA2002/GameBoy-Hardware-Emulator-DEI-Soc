@@ -16,7 +16,7 @@
 `define NO_BOOT 0
 
 `define PPU_ADDR_INC(x) `PPU_ADDR_SET(PPU_ADDR + x)
-`define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ
+`define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ; PPU_RD <= 1
 
 typedef enum bit [1:0] {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_READY, BG_PAUSE} BG_DRAW_STATES_t;
@@ -195,6 +195,7 @@ end
 
 /* -- Memory Loading machine -- */
 always_ff @(posedge clk) begin
+	if (mem_config == MEM_LOAD) PPU_RD <= 0;
 	if (mem_config != MEM_NO_REQ) mem_config <= mem_config + 1;
 end
 
@@ -330,6 +331,8 @@ end
  * 	X masking					o
  *  Y masking 					o
  * 	Memory usage				o
+ *  Vblank interrupt
+ *	PPU extra signals (RD)
  *
  */
 
