@@ -1,8 +1,4 @@
-`timescale 1ns / 1ns
-
-//Authors: Nicolas Alarcon, Claire Cizdziel, Donovan Sproule
-
-/* WARNING: DOES NOT HAVE INTERRUPTS OR ANY EXTERNAL OUTPUTS IMPLEMENTED */
+// Authors: Nicolas Alarcon, Claire Cizdziel, Donovan Sproule
 
 `define OAM_BASE_ADDR 16'hFE00
 `define OAM_END_ADDR 16'hFEA0
@@ -17,6 +13,10 @@
 
 `define PPU_ADDR_INC(x) `PPU_ADDR_SET(PPU_ADDR + x)
 `define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ; PPU_RD <= 1
+
+/* Macros that set STAT flags */
+`define PPU_MODE_SET(x) PPU_MODE <= x; FF41[1:0] <= x
+`define LY_UPDATE(x) LY <= x; FF41[2] <= (x == LYC)
 
 typedef enum bit [1:0] {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_READY, BG_PAUSE} BG_DRAW_STATES_t;
@@ -160,7 +160,6 @@ assign WX = FF4B;
 assign IRQ_PPU_V_BLANK = (PPU_MODE == PPU_V_BLANK);
 assign IRQ_LCDC = (STAT[2] && STAT[6]) || (STAT[3] & ~|STAT[1:0]) || (STAT[4] & ~STAT[1] & STAT[0]) || (STAT[5] & STAT[1] & ~STAT[0]);  
 
-
 /* Register Assignment
  * 
  * 	if a register memory address is being indexed it gets updated here 
@@ -210,16 +209,16 @@ always_ff @(posedge clk) begin
     if (rst) begin
 			x_pos <= 0;
 			dots <= 0;
-			LY <= 0;
+			`LY_UPDATE(0);
 			`PPU_ADDR_SET(`OAM_BASE_ADDR);
-			PPU_MODE <= PPU_SCAN;
+			`PPU_MODE_SET(PPU_SCAN);
     end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
     	dots <= dots + 1;
 		/* -- Following block happens on a per scanline basis (456 dots per line) -- */
         case (PPU_MODE)
             PPU_SCAN: begin
 	    		if (dots == 79) begin
-					PPU_MODE <= PPU_DRAW;
+					`PPU_MODE_SET(PPU_DRAW);
 					ready_load <= 1;
 					pixels_pushed <= 1;
 					x_pos <= 0;
@@ -227,17 +226,18 @@ always_ff @(posedge clk) begin
 					bg_fetch_mode <= BG_PAUSE;
 					sp_fetch_mode <= SP_SEARCH;
 		    	end
-				if (LY >= 144) PPU_MODE <= PPU_V_BLANK; 
+				if (LY >= 144) begin 
+					`PPU_MODE_SET(PPU_V_BLANK);
+				end 
 			end
 		    PPU_DRAW: begin
 		    	if ((x_pos > 160 && SCX == 0) || x_pos > 168) begin
-		    		PPU_MODE <= PPU_H_BLANK;
+		    		`PPU_MODE_SET(PPU_H_BLANK);
 		    	end
 		    end
 		    PPU_H_BLANK: begin
 		    	if (dots >= 455) begin					// we reached the end of the scanline
-					LY <= LY + 1;
-
+					`LY_UPDATE(LY + 1);
 					for (int i = 0; i < 10; i++) begin
 			            sp_x_buff[0] = 8'd0;
 			            sp_y_buff[0] = 8'd0;
@@ -246,17 +246,17 @@ always_ff @(posedge clk) begin
 					x_pos <= 0;
 					sp_loaded <= 0;
 					dots <= 0;
-					PPU_MODE <= PPU_SCAN;
+					`PPU_MODE_SET(PPU_SCAN);
 					`PPU_ADDR_SET(`OAM_BASE_ADDR);
 				end
 			end
 		    PPU_V_BLANK: begin
 				if (dots >= 455) begin		// we reached the end of the scanline
-					LY <= LY + 1;
+					`LY_UPDATE(LY + 1);
 					dots <= 0;
 					if (LY >= `MAX_LY) begin
-						LY <= 0;
-						PPU_MODE <= PPU_SCAN;
+						`LY_UPDATE(0);
+						`PPU_MODE_SET(PPU_SCAN);
 					end
 				end
 			end
@@ -324,17 +324,21 @@ end
  * We'll need to implement
  *  Proper pixel mixing			o 
  *  Interrupts					o 
- * 	LCDC flags 					-
- * 	Alternate mode support		-
+ * 	LCDC[3:6] 					-
+ *  LCDC[0:2]					o
+ * 	LCDC[7]						o
+ *  STAT flags					o
+ * 	Alternate BG Map			-
+ *  Alternate indexing			-
  *  Window						-
- * 	Tall sprites				-
+ * 	Tall sprites				o
  *  SCX							o
  * 	SCY							o
  * 	X masking					o
  *  Y masking 					o
  * 	Memory usage				o
  *  Vblank interrupts			o
- *	PPU extra Regs/interrupts	-
+ *  Overlapping sprites			o  
  *
  */
 
@@ -353,14 +357,12 @@ always_ff @(posedge clk) begin
 					else gen_mask <= 8'hFF;
 				end
 				BG_ROW_1_LOAD: begin
-					bg_tile_row[0] <= PPU_DATA_in & gen_mask;
-					// bg_tile_row[0] <= PPU_DATA_in;
+					bg_tile_row[0] <= (LCDC[0]) ? PPU_DATA_in & gen_mask : 8'h0;
 					bg_fetch_mode <= BG_ROW_2_LOAD;
 					`PPU_ADDR_INC(1);
 				end
 				BG_ROW_2_LOAD: begin
-					bg_tile_row[1] <= PPU_DATA_in & gen_mask;
-					// bg_tile_row[1] <= PPU_DATA_in;
+					bg_tile_row[1] <= (LCDC[0]) ? PPU_DATA_in & gen_mask : 8'h0;
 					bg_fetch_mode <= BG_READY;
 				end
 				default: begin
@@ -374,7 +376,7 @@ end
 	
  *	State machine iterates through detected sprites for a PPU_scanline,
  *	loads the rows into the sp_fifo and switches the bg drawing on
-*/
+ */
 always_ff @(posedge clk) begin
 	if (rst) begin
 		sp_ind <= 0;
@@ -384,7 +386,8 @@ always_ff @(posedge clk) begin
 				SP_SEARCH: begin
 					if (sp_x_buff[sp_ind] >= 8 &&
 							((sp_real_x >= x_pos && sp_real_x < x_pos + 8) || 
-							  sp_real_x + 8 > x_pos && sp_real_x + 8 <= x_pos + 8)) begin			// end of sprite in tile
+							  sp_real_x + 8 > x_pos && sp_real_x + 8 <= x_pos + 8) && 
+							  	LCDC[1]) begin			// end of sprite in tile
 
 						`PPU_ADDR_SET(`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2);
 						sp_fetch_mode <= SP_TILE_LOAD;	
@@ -435,7 +438,7 @@ always_ff @(posedge clk) begin
 					sp_fetch_mode <= SP_READY;
 				end
 				SP_READY: begin
-					//check to see if new sprite should be rendered
+					// Purposefully ignores multiple sprites existing overlapping. This is because I don't want to overwrite data
 				end
 				default: begin
 				end
@@ -541,4 +544,3 @@ end
 assign q = {shift_reg[1][7], shift_reg[0][7]};
         
 endmodule
-    
