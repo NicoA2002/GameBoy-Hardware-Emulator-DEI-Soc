@@ -7,9 +7,9 @@
 typedef enum {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 
 #define BG_MAP_1_BASE_ADDR 0x9800
-#define BG_MAP_2_END_ADDR 0x9BFF
+#define BG_MAP_2_BASE_ADDR 0x9C00
 
-#define BG_MAP_1_END_ADDR 0x9BFF
+#define BG_MAP_END_ADDR 0x9FFF
 
 #define OAM_BASE_ADDR 0xFE00
 
@@ -19,7 +19,7 @@ typedef enum {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 int main(int argc, const char ** argv, const char ** env) 
 {
 	int time, exit_code, last_clk, i;
-	char tile_1[2], tile_2[2], tile_3, sprite_data[4], OAM_MEM[160], BG_MAP[1024], TILE_MAP[6144], update_reg;
+	char tile_1[2], tile_2[2], tile_3, sprite_data[4], OAM_MEM[160], BG_MAP[2048], TILE_MAP[6144], update_reg;
 	VPPU3 *dut;
 	std::ofstream f("tb_gen.ppm");
 
@@ -36,7 +36,7 @@ int main(int argc, const char ** argv, const char ** env)
 		BG_MAP[i] = i % 2;
 
 	BG_MAP[32] = 1;
-	for (i = BG_MAP_2_END_ADDR - BG_MAP_1_BASE_ADDR; i < 1024; i++)
+	for (i = BG_MAP_2_BASE_ADDR - BG_MAP_1_BASE_ADDR; i < 2048; i++)
 		BG_MAP[i] = 3;
 
 	for (i = 0; i < 16; i += 2) {
@@ -110,12 +110,12 @@ int main(int argc, const char ** argv, const char ** env)
 	    		} else if (!(update_reg & 0x02)) { 	// WY
 	    			dut->WR = 1;
 	    			dut->ADDR = 0xFF4A;
-	    			dut->MMIO_DATA_out = 7;
+	    			dut->MMIO_DATA_out = 0;
 	    			update_reg |= 0x2;
 	    		} else if (!(update_reg & 0x04)) {	// WX
 	    			dut->WR = 1;
 	    			dut->ADDR = 0xFF4B;
-	    			dut->MMIO_DATA_out = 0;
+	    			dut->MMIO_DATA_out = 7;
 	    			update_reg |= 0x4;
 	    		} else
 	    			dut->WR = 0;
@@ -124,7 +124,7 @@ int main(int argc, const char ** argv, const char ** env)
 
 			if (dut->PPU_ADDR >= OAM_BASE_ADDR && dut->PPU_ADDR < OAM_BASE_ADDR + 160)
 				dut->PPU_DATA_in = OAM_MEM[dut->PPU_ADDR - OAM_BASE_ADDR];
-			else if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR <= BG_MAP_1_END_ADDR)
+			else if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR <= BG_MAP_END_ADDR)
 				dut->PPU_DATA_in = BG_MAP[dut->PPU_ADDR - BG_MAP_1_BASE_ADDR];
 			else if (dut->PPU_ADDR >= TILE_BASE_ADDR && dut->PPU_ADDR <= TILE_END_ADDR)
 				dut->PPU_DATA_in = TILE_MAP[dut->PPU_ADDR - TILE_BASE_ADDR];
