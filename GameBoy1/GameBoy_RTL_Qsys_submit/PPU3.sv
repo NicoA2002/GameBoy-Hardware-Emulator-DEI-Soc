@@ -4,6 +4,8 @@
 `define OAM_END_ADDR 16'hFEA0
 
 `define BG_MAP_1_BASE_ADDR 16'h9800
+`define BG_MAP_2_BASE_ADDR 16'h9C00
+
 `define BG_MAP_1_END_ADDR 16'h9BFF
 
 `define TILE_BASE 16'h8000
@@ -16,7 +18,8 @@
 
 /* Macros that set STAT flags */
 `define PPU_MODE_SET(x) PPU_MODE <= x; FF41[1:0] <= x
-`define LY_UPDATE(x) LY <= x; FF41[2] <= (x == LYC); FF45 <= {7'b0, (x == LYC)}
+`define LY_UPDATE(x) LY <= x; FF41[2] <= (x == LYC); FF45 <= {7'b0, (x == LYC)};
+`define WXC_UPDATE(x) if (LY >= WY && ((real_wx >= SCX) && (real_wx <= (168 + SCX)))) WXC <= x;
 
 typedef enum bit [1:0] {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_READY, BG_PAUSE} BG_DRAW_STATES_t;
@@ -96,6 +99,8 @@ logic [7:0] sp_tile_row [1:0];
 /* Window */
 logic [7:0] WXC;
 logic [7:0] real_wx;
+logic [15:0] x_w_off;
+logic [15:0] y_w_off;
 
 /* Pixel Masking */
 logic unsigned [7:0] gen_mask;
@@ -121,8 +126,11 @@ assign curr_off = PPU_ADDR - `OAM_BASE_ADDR;
 assign x_tile_off = (((BIG_X >> 3) + ({8'b0, SCX} >> 3)) & 16'h3FFF);
 assign y_tile_off = (((({8'h0, LY} + {8'h0, SCY}) & 16'hFF) >> 3) << 5) & 16'h3FFF;
 
+assign x_w_off = ((({8'b0, x_pos - real_wx} >> 3)) & 16'h3FFF);
+assign y_w_off = ((({8'h0, WXC}) >> 3) << 5) & 16'h3FFF;
+
 assign sp_real_x = sp_x_buff[sp_ind] - 8;
-assign real_wx = WX - 8;
+assign real_wx = WX - 7;
 
 PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(bg_out));
 PPU_SHIFT_REG sp_fifo(.clk(clk), .rst(rst), .data(sp_tile_row), .go(sp_fifo_go), .load(sp_fifo_load), .q(sp_out));
@@ -222,6 +230,7 @@ always_ff @(posedge clk) begin
 			x_pos <= 0;
 			dots <= 0;
 			`LY_UPDATE(0);
+			WXC <= 0;
 			`PPU_ADDR_SET(`OAM_BASE_ADDR);
 			`PPU_MODE_SET(PPU_SCAN);
     end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
@@ -250,6 +259,7 @@ always_ff @(posedge clk) begin
 		    PPU_H_BLANK: begin
 		    	if (dots >= 455) begin					// we reached the end of the scanline
 					`LY_UPDATE(LY + 1);
+					`WXC_UPDATE(WXC + 1);
 					for (int i = 0; i < 10; i++) begin
 			            sp_x_buff[0] = 8'd0;
 			            sp_y_buff[0] = 8'd0;
@@ -265,9 +275,11 @@ always_ff @(posedge clk) begin
 		    PPU_V_BLANK: begin
 				if (dots >= 455) begin		// we reached the end of the scanline
 					`LY_UPDATE(LY + 1);
+					`WXC_UPDATE(WXC + 1);
 					dots <= 0;
 					if (LY >= `MAX_LY) begin
 						`LY_UPDATE(0);
+						`WXC_UPDATE(0);
 						`PPU_MODE_SET(PPU_SCAN);
 					end
 				end
@@ -363,6 +375,7 @@ always_ff @(posedge clk) begin
 			case (bg_fetch_mode)
 				BG_TILE_NO_STORE: begin
 					bg_fetch_mode <= BG_ROW_1_LOAD;
+					
 					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
 					if (x_pos == 0) gen_mask <= 8'hFF >> SCX[2:0];
 					else if (x_pos == 160) gen_mask <= ~(8'hFF << SCX[2:0]);
@@ -446,7 +459,11 @@ always_ff @(posedge clk) begin
 					sp_ind <= 0;
 					curr_sp_flag <= PPU_DATA_in;
 					bg_fetch_mode <= BG_TILE_NO_STORE;
-					`PPU_ADDR_SET(`BG_MAP_1_BASE_ADDR + x_tile_off + y_tile_off);
+					if (LY >= WY && x_pos >= real_wx) begin
+						`PPU_ADDR_SET(`BG_MAP_2_BASE_ADDR + x_w_off + y_w_off);
+					end else begin
+						`PPU_ADDR_SET(`BG_MAP_1_BASE_ADDR + x_tile_off + y_tile_off);
+					end
 					sp_fetch_mode <= SP_READY;
 				end
 				SP_READY: begin
