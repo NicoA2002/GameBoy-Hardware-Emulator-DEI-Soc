@@ -7,6 +7,8 @@
 typedef enum {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 
 #define BG_MAP_1_BASE_ADDR 0x9800
+#define BG_MAP_2_END_ADDR 0x9BFF
+
 #define BG_MAP_1_END_ADDR 0x9BFF
 
 #define OAM_BASE_ADDR 0xFE00
@@ -31,9 +33,11 @@ int main(int argc, const char ** argv, const char ** env)
     last_clk = time = exit_code == 0;
 
 	for (i = 0; i < 1024; i++)
-		BG_MAP[i] = i % 4;
+		BG_MAP[i] = i % 2;
 
 	BG_MAP[32] = 1;
+	for (i = BG_MAP_2_END_ADDR - BG_MAP_1_BASE_ADDR; i < 1024; i++)
+		BG_MAP[i] = 3;
 
 	for (i = 0; i < 16; i += 2) {
 		TILE_MAP[i] = 0xFF;						// 1111_1111
@@ -103,15 +107,15 @@ int main(int argc, const char ** argv, const char ** env)
 					dut->MMIO_DATA_out = 0xFB;
 					// dut->MMIO_DATA_out = 0xFF;
 					update_reg |= 0x1;
-	    		} else if (!(update_reg & 0x2)) { 	// SCX
+	    		} else if (!(update_reg & 0x02)) { 	// WY
 	    			dut->WR = 1;
-	    			dut->ADDR = 0xFF43;
-	    			dut->MMIO_DATA_out = 2;
+	    			dut->ADDR = 0xFF4A;
+	    			dut->MMIO_DATA_out = 7;
 	    			update_reg |= 0x2;
-	    		} else if (!(update_reg & 0x4)) {	// SCY
+	    		} else if (!(update_reg & 0x04)) {	// WX
 	    			dut->WR = 1;
-	    			dut->ADDR = 0xFF42;
-	    			dut->MMIO_DATA_out = 4;
+	    			dut->ADDR = 0xFF4B;
+	    			dut->MMIO_DATA_out = 0;
 	    			update_reg |= 0x4;
 	    		} else
 	    			dut->WR = 0;

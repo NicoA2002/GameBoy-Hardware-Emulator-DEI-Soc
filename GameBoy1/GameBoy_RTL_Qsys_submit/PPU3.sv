@@ -93,6 +93,11 @@ logic [3:0] sp_ind;
 logic [2:0] sp_fetch_mode;
 logic [7:0] sp_tile_row [1:0];
 
+/* Window */
+logic [7:0] WXC;
+logic [7:0] real_wx;
+
+/* Pixel Masking */
 logic unsigned [7:0] gen_mask;
 logic unsigned [7:0] sp_mask;
 
@@ -117,6 +122,7 @@ assign x_tile_off = (((BIG_X >> 3) + ({8'b0, SCX} >> 3)) & 16'h3FFF);
 assign y_tile_off = (((({8'h0, LY} + {8'h0, SCY}) & 16'hFF) >> 3) << 5) & 16'h3FFF;
 
 assign sp_real_x = sp_x_buff[sp_ind] - 8;
+assign real_wx = WX - 8;
 
 PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(bg_out));
 PPU_SHIFT_REG sp_fifo(.clk(clk), .rst(rst), .data(sp_tile_row), .go(sp_fifo_go), .load(sp_fifo_load), .q(sp_out));
