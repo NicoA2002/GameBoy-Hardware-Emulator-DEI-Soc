@@ -16,13 +16,18 @@
 
 /* Macros that set STAT flags */
 `define PPU_MODE_SET(x) PPU_MODE <= x; FF41[1:0] <= x
-`define LY_UPDATE(x) LY <= x; FF41[2] <= (x == LYC)
+`define LY_UPDATE(x) LY <= x; FF41[2] <= (x == LYC); FF45 <= {7'b0, (x == LYC)}
 
 typedef enum bit [1:0] {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_READY, BG_PAUSE} BG_DRAW_STATES_t;
 typedef enum bit [2:0] {SP_SEARCH, SP_ROW_1_LOAD, SP_ROW_2_LOAD, SP_READY, SP_RUN_BG, SP_TILE_LOAD} SP_DRAW_STATES_t;
 typedef enum bit [2:0] {MIX_LOAD, MIX_START, MIX_PUSH} MIX_STATES_t;
 typedef enum bit [2:0] {MEM_EMPTY, MEM_REQ, MEM_LOAD, MEM_NO_REQ} MEM_STATES_t;
+
+/* Doesn't track clock cycles but instead measures progressions in the form of 'dots'. Any instruction that processes
+ * data and progresses the PPU iterates a dot, most of the exceptions being stall clock cycles where we make a memory 
+ * request and must halt until we can use the data
+ */
 
 module PPU3
 (
@@ -55,7 +60,7 @@ module PPU3
 logic [15:0] BIG_DATA_in, BIG_LY_SCY_MOD, BIG_X;
 
 /* Scanline tracking */
-logic [7:0] LY, x_pos;  // x-pos in range [0, 159]
+logic [7:0] LY, x_pos;  			// x-pos in range [0, 159]
 logic [8:0] dots;
 logic [3:0] pixels_pushed;
 logic [15:0] x_tile_off;
@@ -83,7 +88,7 @@ logic [7:0] bg_tile_row [1:0];
 logic sp_fifo_go;
 logic sp_fifo_load;
 logic [7:0] curr_sp_flag;
-logic [7:0] sp_real_x;		// used to account for the 16 offset
+logic [7:0] sp_real_x;				// used to account for the 16 offset
 logic [3:0] sp_ind;
 logic [2:0] sp_fetch_mode;
 logic [7:0] sp_tile_row [1:0];
@@ -132,6 +137,7 @@ logic [7:0] FF43;
 assign SCX = FF43;
 
 logic [7:0] FF44;
+assign FF44 = LY;
 
 logic [7:0] FF45;
 assign LYC = FF45;
