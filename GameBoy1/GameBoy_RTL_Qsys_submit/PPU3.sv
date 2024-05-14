@@ -26,6 +26,7 @@ typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_READY
 typedef enum bit [2:0] {SP_SEARCH, SP_ROW_1_LOAD, SP_ROW_2_LOAD, SP_READY, SP_RUN_BG, SP_TILE_LOAD} SP_DRAW_STATES_t;
 typedef enum bit [2:0] {MIX_LOAD, MIX_START, MIX_PUSH} MIX_STATES_t;
 typedef enum bit [2:0] {MEM_EMPTY, MEM_REQ, MEM_LOAD, MEM_NO_REQ} MEM_STATES_t;
+typedef enum bit [1:0] {W_NO_EDGE, W_BG_RUN, W_MASK_RUN} W_STATES_t;
 
 /* Doesn't track clock cycles but instead measures progressions in the form of 'dots'. Any instruction that processes
  * data and progresses the PPU iterates a dot, most of the exceptions being stall clock cycles where we make a memory 
@@ -101,6 +102,7 @@ logic [7:0] WXC;
 logic [7:0] real_wx;
 logic [15:0] x_w_off;
 logic [15:0] y_w_off;
+logic [1:0] w_check;
 
 /* Pixel Masking */
 logic unsigned [7:0] gen_mask;
@@ -354,7 +356,7 @@ end
  *  STAT flags					o
  * 	Alternate BG Map			-
  *  Alternate indexing			-
- *  Window						-
+ *  Window						o
  * 	Tall sprites				o
  *  SCX							o
  * 	SCY							o
@@ -367,28 +369,56 @@ end
  */
 
 /* BG Draw Machine */
+logic [7:0] cnt;
+logic [7:0] w_mask;
+
 always_ff @(posedge clk) begin
 	if (rst) begin
 		pixels_pushed <= 1;
+		cnt <= 0;
 	end else if (mem_config == MEM_NO_REQ) begin
 		if (PPU_MODE == PPU_DRAW) begin
 			case (bg_fetch_mode)
 				BG_TILE_NO_STORE: begin
 					bg_fetch_mode <= BG_ROW_1_LOAD;
+					cnt <= cnt + 1;
 					
 					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
+
+					if (LCDC[5]) begin
+						if (LY >= WY && (x_pos + SCX >= real_wx)) begin
+							`PPU_ADDR_SET(`TILE_BASE + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
+						end
+					end
+					
 					if (x_pos == 0) gen_mask <= 8'hFF >> SCX[2:0];
 					else if (x_pos == 160) gen_mask <= ~(8'hFF << SCX[2:0]);
 					else gen_mask <= 8'hFF;
+
+					if (w_check == W_BG_RUN) w_mask <= 8'hFF << (8 - (real_wx - x_pos - SCX));
+					if (w_check == W_MASK_RUN) w_mask <= 8'hFF >> (real_wx - x_pos - SCX);
 				end
 				BG_ROW_1_LOAD: begin
 					bg_tile_row[0] <= (LCDC[0]) ? PPU_DATA_in & gen_mask : 8'h0;
+					if (w_check == W_BG_RUN) bg_tile_row[0] <= PPU_DATA_in & w_mask;
+					if (w_check == W_MASK_RUN) bg_tile_row[0] <= bg_tile_row[0] | (PPU_DATA_in & w_mask);
+
 					bg_fetch_mode <= BG_ROW_2_LOAD;
 					`PPU_ADDR_INC(1);
 				end
 				BG_ROW_2_LOAD: begin
 					bg_tile_row[1] <= (LCDC[0]) ? PPU_DATA_in & gen_mask : 8'h0;
-					bg_fetch_mode <= BG_READY;
+					if (w_check == W_BG_RUN) bg_tile_row[1] <= PPU_DATA_in & w_mask;
+					if (w_check == W_MASK_RUN) bg_tile_row[1] <= bg_tile_row[1] | (PPU_DATA_in & w_mask);
+
+					if (w_check == W_BG_RUN) begin
+						bg_fetch_mode <= BG_TILE_NO_STORE;
+						`PPU_ADDR_SET(`BG_MAP_2_BASE_ADDR + {x_w_off[15:3], 3'h0} + y_w_off);
+						w_check <= W_MASK_RUN;
+					end else begin
+						bg_fetch_mode <= BG_READY;
+						cnt <= 0;
+					end
 				end
 				default: begin
 				end
@@ -459,10 +489,17 @@ always_ff @(posedge clk) begin
 					sp_ind <= 0;
 					curr_sp_flag <= PPU_DATA_in;
 					bg_fetch_mode <= BG_TILE_NO_STORE;
-					if (LY >= WY && x_pos >= real_wx) begin
-						`PPU_ADDR_SET(`BG_MAP_2_BASE_ADDR + x_w_off + y_w_off);
+					if (LY >= WY && ((x_pos + SCX >= real_wx) || (x_pos + SCX + 8 > real_wx))) begin
+						if ((x_pos + SCX + 8 > real_wx) && (x_pos + SCX < real_wx)) begin											// In the middle of a tile
+							`PPU_ADDR_SET(`BG_MAP_1_BASE_ADDR + x_tile_off + y_tile_off);
+							w_check <= W_BG_RUN; 
+						end else begin
+							`PPU_ADDR_SET(`BG_MAP_2_BASE_ADDR + x_w_off + y_w_off);
+							w_check <= W_NO_EDGE;
+						end
 					end else begin
 						`PPU_ADDR_SET(`BG_MAP_1_BASE_ADDR + x_tile_off + y_tile_off);
+						w_check <= W_NO_EDGE;
 					end
 					sp_fetch_mode <= SP_READY;
 				end
