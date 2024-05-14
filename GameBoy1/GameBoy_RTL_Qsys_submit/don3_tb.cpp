@@ -7,16 +7,19 @@
 typedef enum {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 
 #define BG_MAP_1_BASE_ADDR 0x9800
-#define BG_MAP_1_END_ADDR 0x9BFF
+#define BG_MAP_2_BASE_ADDR 0x9C00
+
+#define BG_MAP_END_ADDR 0x9FFF
 
 #define OAM_BASE_ADDR 0xFE00
 
-#define TILE_BASE 0x8000
+#define TILE_BASE_ADDR 0x8000
+#define TILE_END_ADDR  0x97FF
 
 int main(int argc, const char ** argv, const char ** env) 
 {
-	int time, exit_code, last_clk, row_1_loaded, cycles, tile_toggle, tile_row_cnt;
-	char LCDC, tile_1[2], tile_2[2], tile_3, sprite_data[4];
+	int time, exit_code, last_clk, i;
+	char tile_1[2], tile_2[2], tile_3, sprite_data[4], OAM_MEM[160], BG_MAP[2048], TILE_MAP[6144], update_reg;
 	VPPU3 *dut;
 	std::ofstream f("tb_gen.ppm");
 
@@ -26,21 +29,54 @@ int main(int argc, const char ** argv, const char ** env)
 		return exit_code;
 	}
 	f << "P2\n160 144\n4\n";
+   
+    last_clk = time = exit_code == 0;
 
-	tile_row_cnt = tile_toggle = cycles = last_clk = time = exit_code = row_1_loaded = 0;
+	for (i = 0; i < 1024; i++)
+		BG_MAP[i] = i % 2;
 
-	tile_1[0] = 0xFF;	// 1111_1111
-	tile_1[1] = 0x00;	// 0000_0000
+	BG_MAP[32] = 1;
+	for (i = BG_MAP_2_BASE_ADDR - BG_MAP_1_BASE_ADDR; i < 2048; i++)
+		BG_MAP[i] = 3;
 
-	tile_2[0] = 0xAA;	// 1010_1010
-	tile_2[1] = 0x55;	// 0101_0101
+	for (i = 0; i < 16; i += 2) {
+		TILE_MAP[i] = 0xFF;						// 1111_1111
+		TILE_MAP[i+1] = 0x00;					// 0000_0000
 
-	tile_3 = 0xFF;
+		TILE_MAP[(16 * 1) + i] = 0xAA;			// 1010_1010
+		TILE_MAP[(16 * 1) + i + 1] = 0x55;		// 0101_0101
 
-	sprite_data[0] = 16 + (8 * 1);		// (y-value)		16 + pos
-	sprite_data[1] = 8 + (8 * 1);		// (x-value)		 8 + pos
-	sprite_data[2] = 2;					// (tile no.)
-	sprite_data[3] = 0xFF;				// flags (prio and other things)
+		TILE_MAP[(16 * 17) + i] = 0xFF;			// "sprite"
+		TILE_MAP[(16 * 17) + i + 1] = 0xFF;
+
+		TILE_MAP[(16 * 16) + i] = 0xFF;			// "sprite"
+		TILE_MAP[(16 * 16) + i + 1] = 0xFF;
+	}
+
+	for (i = 0; i < 16; i += 4) {
+		TILE_MAP[(16 * 2) + i] = 0x96;				// 1001_0110
+		TILE_MAP[(16 * 2) + i + 1] = 0x69;			// 0110_1001
+
+		TILE_MAP[(16 * 2) + i + 2] = 0x69;			// 1001_0110
+		TILE_MAP[(16 * 2) + i + 3] = 0x96;			// 0110_1001
+
+		TILE_MAP[(16 * 3) + i] = 0xAA;				// 1001_0110
+		TILE_MAP[(16 * 3) + i + 1] = 0x55;			// 0110_1001
+
+		TILE_MAP[(16 * 3) + i + 2] = 0x55;			// 1001_0110
+		TILE_MAP[(16 * 3) + i + 3] = 0xAA;			// 0110_1001
+	}
+
+	for (i = 0; i < 8; i += 4) {
+		OAM_MEM[0] = 16 + (8 * 3);		// (y-value)		16 + pos
+		OAM_MEM[1] = 8 + (8 * 0);		// (x-value)		 8 + pos
+
+		OAM_MEM[4] = 16 + (8 * 1);		// (y-value)		16 + pos
+		OAM_MEM[5] = 8 + (8 * 2);		// (x-value)		 8 + pos
+
+		OAM_MEM[i+2] = 0x11;				// (tile no.)
+		OAM_MEM[7] = 0xFF >> 1;			// flags (prio and other things)
+	}
 
 	Verilated::commandArgs(argc, argv);
 
@@ -52,90 +88,56 @@ int main(int argc, const char ** argv, const char ** env)
 	dut->trace(tfp, 99);
 	tfp->open("ppu3.vcd");
 
-	LCDC = 0xFB;
-	dut->WR = 1;
-	dut->ADDR = 0xFF40;
-	dut->MMIO_DATA_out = LCDC;
-
 	dut->PPU_DATA_in = 0x0;	// JUNK
-	for (time = 0 ; time < 1368000 ; time += 10) {
+
+	for (time = 0 ; time < 2272110 ; time += 10) {
 		// Simulate a 50 MHz clock
 		last_clk = dut->clk;							// used to detect posedge
     	dut->clk = ((time % 20) >= 10) ? 1 : 0;
-		if (dut->clk == 1)
-    		cycles++;
 
     	// Triggers rst
     	dut->rst = (time == 30) ? 1 : 0;
-    	if (dut->rst == 1)
-    		cycles = 0;
 
-		// posedge
-		if (dut->clk != last_clk && dut->clk == 1) {
-			/* OAM Scan */
-			if (cycles == 0)
-				dut->PPU_DATA_in = sprite_data[0];
-			else if (cycles == 1)
-				dut->PPU_DATA_in = sprite_data[1];
-			else if (cycles == 2)
-				dut->PPU_DATA_in = 0;
-
-			if (cycles > 455) {
-				cycles = 0;
-				tile_toggle = 0;
-				tile_row_cnt = 0;
-				dut->PPU_DATA_in = 0x0;
-			}
-
-			if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR < BG_MAP_1_END_ADDR && !dut->DEBUG_FLAG) {		// currently looking at a tile
-				if (dut->PPU_DATA_in == 0) {
-					if (!row_1_loaded) {				// guarantees it only happens once
-						tile_row_cnt++;
-						dut->PPU_DATA_in = tile_2[0];
-						row_1_loaded = 1;
-					}
-				} else if (dut->PPU_DATA_in == 1) {
-					if (!row_1_loaded) {
-						tile_row_cnt++;
-						dut->PPU_DATA_in = tile_1[0];
-						row_1_loaded = 1;
-					}
-				}
-			}
-			if ((TILE_BASE <= dut->PPU_ADDR) && (TILE_BASE + (16*2) > dut->PPU_ADDR) && !dut->DEBUG_FLAG) {
-				if (tile_toggle == 0)
-					dut->PPU_DATA_in = tile_2[1];
-				else
-					dut->PPU_DATA_in = tile_1[1];
-			}
-			if (((TILE_BASE + (16*2) <= dut->PPU_ADDR) && (TILE_BASE + (16*3) > dut->PPU_ADDR) && !dut->DEBUG_FLAG) ||
-									(dut->PPU_ADDR == 0xFE02)){
-				dut->PPU_DATA_in = tile_3;
-			}
-
-			/* BG Tile fetching */
-			if (dut->clk != last_clk && dut->clk == 1) {	// on posedge of clock
-	    		if (dut->DEBUG_FLAG == 0x1) {
-					tile_toggle = !tile_toggle;
-					dut->PPU_DATA_in = tile_toggle;					// tells it to pull from file 1
-					row_1_loaded = 0;
-				}
-				if (dut->DEBUG_FLAG == 0x2)
-					dut->PPU_DATA_in = sprite_data[0];
-				if (dut->DEBUG_FLAG == 0x3)
-					dut->PPU_DATA_in = 2;
+    	// only on posedge
+    	if (dut->clk == 1) {
+	    	if (time > 40) { // after rst
+	    		if (!(update_reg & 0x1)) { 			// LCDC
+					dut->WR = 1;
+					dut->ADDR = 0xFF40;
+					dut->MMIO_DATA_out = 0xF3;			// 1111_0011
+					// dut->MMIO_DATA_out = 0xFF;
+					update_reg |= 0x1;
+	    		} else if (!(update_reg & 0x02)) { 	// WY
+	    			dut->WR = 1;
+	    			dut->ADDR = 0xFF4A;
+	    			dut->MMIO_DATA_out = 8 * 8;
+	    			update_reg |= 0x2;
+	    		} else if (!(update_reg & 0x04)) {	// WX
+	    			dut->WR = 1;
+	    			dut->ADDR = 0xFF4B;
+	    			dut->MMIO_DATA_out = 7 + 16 - 2;
+	    			update_reg |= 0x4;
+	    		} else
+	    			dut->WR = 0;
 	    	}
 
+
+			if (dut->PPU_ADDR >= OAM_BASE_ADDR && dut->PPU_ADDR < OAM_BASE_ADDR + 160)
+				dut->PPU_DATA_in = OAM_MEM[dut->PPU_ADDR - OAM_BASE_ADDR];
+			else if (dut->PPU_ADDR >= BG_MAP_1_BASE_ADDR && dut->PPU_ADDR <= BG_MAP_END_ADDR)
+				dut->PPU_DATA_in = BG_MAP[dut->PPU_ADDR - BG_MAP_1_BASE_ADDR];
+			else if (dut->PPU_ADDR >= TILE_BASE_ADDR && dut->PPU_ADDR <= TILE_END_ADDR)
+				dut->PPU_DATA_in = TILE_MAP[dut->PPU_ADDR - TILE_BASE_ADDR];
 		}
+
 
     	dut->eval();     			// Run the simulation for a cycle
     	tfp->dump(time); 			// Write the VCD file for this cycle
 
     	if (dut->clk != last_clk && dut->clk == 1) {	// on posedge of clock
     		/* Writes to ppm file */
-    		if ((int)dut->PX_valid == 1) {
+    		if ((int)dut->PX_valid == 1)
     			f << (int) dut->PX_OUT << " ";
-    		}
     	}
     }
 
