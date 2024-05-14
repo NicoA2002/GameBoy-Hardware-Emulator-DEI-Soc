@@ -87,6 +87,7 @@ logic bg_fifo_go;
 logic bg_fifo_load;
 logic [2:0] bg_fetch_mode;
 logic [7:0] bg_tile_row [1:0];
+logic [15:0] bg_map_sel;
 
 /* SP fetching vars */
 logic sp_fifo_go;
@@ -103,6 +104,8 @@ logic [7:0] real_wx;
 logic [15:0] x_w_off;
 logic [15:0] y_w_off;
 logic [1:0] w_check;
+logic [7:0] w_mask;
+logic [15:0] w_map_sel;
 
 /* Pixel Masking */
 logic unsigned [7:0] gen_mask;
@@ -133,6 +136,9 @@ assign y_w_off = ((({8'h0, WXC}) >> 3) << 5) & 16'h3FFF;
 
 assign sp_real_x = sp_x_buff[sp_ind] - 8;
 assign real_wx = WX - 7;
+
+assign w_map_sel = (LCDC[6]) ? `BG_MAP_2_BASE_ADDR : `BG_MAP_1_BASE_ADDR;
+assign bg_map_sel = (LCDC[3]) ? `BG_MAP_2_BASE_ADDR : `BG_MAP_1_BASE_ADDR;
 
 PPU_SHIFT_REG bg_fifo(.clk(clk), .rst(rst), .data(bg_tile_row), .go(bg_fifo_go), .load(bg_fifo_load), .q(bg_out));
 PPU_SHIFT_REG sp_fifo(.clk(clk), .rst(rst), .data(sp_tile_row), .go(sp_fifo_go), .load(sp_fifo_load), .q(sp_out));
@@ -350,12 +356,12 @@ end
  * We'll need to implement
  *  Proper pixel mixing			o 
  *  Interrupts					o 
- * 	LCDC[3:6] 					-
- *  LCDC[0:2]					o
- * 	LCDC[7]						o
+ * 	LCDC[0:3] 					o
+ *  LCDC[4]						o
+ * 	LCDC[5:7]					o
  *  STAT flags					o
- * 	Alternate BG Map			-
- *  Alternate indexing			-
+ * 	Alternate BG Map			o
+ *  Alternate indexing			o
  *  Window						o
  * 	Tall sprites				o
  *  SCX							o
@@ -369,21 +375,21 @@ end
  */
 
 /* BG Draw Machine */
-logic [7:0] cnt;
-logic [7:0] w_mask;
-
 always_ff @(posedge clk) begin
 	if (rst) begin
 		pixels_pushed <= 1;
-		cnt <= 0;
 	end else if (mem_config == MEM_NO_REQ) begin
 		if (PPU_MODE == PPU_DRAW) begin
 			case (bg_fetch_mode)
 				BG_TILE_NO_STORE: begin
 					bg_fetch_mode <= BG_ROW_1_LOAD;
-					cnt <= cnt + 1;
 					
-					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
+					if (LCDC[4]) begin
+						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
+					end
+					else begin
+						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) - (BIG_DATA_in << 4));		// 8800-indexing
+					end
 
 					if (LCDC[5]) begin
 						if (LY >= WY && (x_pos + SCX >= real_wx)) begin
@@ -399,25 +405,28 @@ always_ff @(posedge clk) begin
 					if (w_check == W_MASK_RUN) w_mask <= 8'hFF >> (real_wx - x_pos - SCX);
 				end
 				BG_ROW_1_LOAD: begin
-					bg_tile_row[0] <= (LCDC[0]) ? PPU_DATA_in & gen_mask : 8'h0;
-					if (w_check == W_BG_RUN) bg_tile_row[0] <= PPU_DATA_in & w_mask;
-					if (w_check == W_MASK_RUN) bg_tile_row[0] <= bg_tile_row[0] | (PPU_DATA_in & w_mask);
+					if (LCDC[0]) begin
+						bg_tile_row[0] <= PPU_DATA_in & gen_mask;
+						if (w_check == W_BG_RUN) bg_tile_row[0] <= PPU_DATA_in & w_mask;
+						if (w_check == W_MASK_RUN) bg_tile_row[0] <= bg_tile_row[0] | (PPU_DATA_in & w_mask);
+					end else bg_tile_row[0] <= 8'h0;
 
 					bg_fetch_mode <= BG_ROW_2_LOAD;
 					`PPU_ADDR_INC(1);
 				end
 				BG_ROW_2_LOAD: begin
-					bg_tile_row[1] <= (LCDC[0]) ? PPU_DATA_in & gen_mask : 8'h0;
-					if (w_check == W_BG_RUN) bg_tile_row[1] <= PPU_DATA_in & w_mask;
-					if (w_check == W_MASK_RUN) bg_tile_row[1] <= bg_tile_row[1] | (PPU_DATA_in & w_mask);
+					if (LCDC[0]) begin
+						bg_tile_row[1] <= PPU_DATA_in & gen_mask;
+						if (w_check == W_BG_RUN) bg_tile_row[1] <= PPU_DATA_in & w_mask;
+						if (w_check == W_MASK_RUN) bg_tile_row[1] <= bg_tile_row[1] | (PPU_DATA_in & w_mask);
+					end else bg_tile_row[1] <= 8'h0;
 
 					if (w_check == W_BG_RUN) begin
 						bg_fetch_mode <= BG_TILE_NO_STORE;
-						`PPU_ADDR_SET(`BG_MAP_2_BASE_ADDR + {x_w_off[15:3], 3'h0} + y_w_off);
+						`PPU_ADDR_SET(w_map_sel + {x_w_off[15:3], 3'h0} + y_w_off);
 						w_check <= W_MASK_RUN;
 					end else begin
 						bg_fetch_mode <= BG_READY;
-						cnt <= 0;
 					end
 				end
 				default: begin
@@ -489,16 +498,16 @@ always_ff @(posedge clk) begin
 					sp_ind <= 0;
 					curr_sp_flag <= PPU_DATA_in;
 					bg_fetch_mode <= BG_TILE_NO_STORE;
-					if (LY >= WY && ((x_pos + SCX >= real_wx) || (x_pos + SCX + 8 > real_wx))) begin
+					if (LY >= WY && ((x_pos + SCX >= real_wx) || (x_pos + SCX + 8 > real_wx)) && LCDC[5]) begin
 						if ((x_pos + SCX + 8 > real_wx) && (x_pos + SCX < real_wx)) begin											// In the middle of a tile
-							`PPU_ADDR_SET(`BG_MAP_1_BASE_ADDR + x_tile_off + y_tile_off);
+							`PPU_ADDR_SET(bg_map_sel + x_tile_off + y_tile_off);
 							w_check <= W_BG_RUN; 
 						end else begin
-							`PPU_ADDR_SET(`BG_MAP_2_BASE_ADDR + x_w_off + y_w_off);
+							`PPU_ADDR_SET(w_map_sel + x_w_off + y_w_off);
 							w_check <= W_NO_EDGE;
 						end
 					end else begin
-						`PPU_ADDR_SET(`BG_MAP_1_BASE_ADDR + x_tile_off + y_tile_off);
+						`PPU_ADDR_SET(bg_map_sel + x_tile_off + y_tile_off);
 						w_check <= W_NO_EDGE;
 					end
 					sp_fetch_mode <= SP_READY;

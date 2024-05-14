@@ -104,7 +104,7 @@ int main(int argc, const char ** argv, const char ** env)
 	    		if (!(update_reg & 0x1)) { 			// LCDC
 					dut->WR = 1;
 					dut->ADDR = 0xFF40;
-					dut->MMIO_DATA_out = 0xFB;
+					dut->MMIO_DATA_out = 0xF3;			// 1111_0011
 					// dut->MMIO_DATA_out = 0xFF;
 					update_reg |= 0x1;
 	    		} else if (!(update_reg & 0x02)) { 	// WY
