@@ -386,8 +386,7 @@ always_ff @(posedge clk) begin
 					
 					if (LCDC[4]) begin
 						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
-					end
-					else begin
+					end else begin
 						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) - (BIG_DATA_in << 4));		// 8800-indexing
 					end
 
