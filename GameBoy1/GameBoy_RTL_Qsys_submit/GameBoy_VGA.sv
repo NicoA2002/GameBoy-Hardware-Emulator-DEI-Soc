@@ -5,7 +5,7 @@
  * Columbia University
  * Modified By Nicolas Alarcon, Donovan Sproule, Claire Cizdziel
  * Columbia University
- * 1280 x 1024 @ 60 Hz
+ * 640 x 480 @ 60 Hz: 25MHz
  *
  * New Resolution: 480x432: modify timing, framebuffer size, pixel scaling
  */
