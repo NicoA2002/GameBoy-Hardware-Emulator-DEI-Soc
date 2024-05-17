@@ -62,6 +62,7 @@ module PPU3
 
 /* Extensions */
 logic [15:0] BIG_DATA_in, BIG_LY_SCY_MOD, BIG_X;
+logic signed [15:0] S_BIG_DATA_in;
 
 /* Scanline tracking */
 logic [7:0] LY, x_pos;  			// x-pos in range [0, 159]
@@ -121,7 +122,8 @@ logic [2:0] px_mix_mode;
 logic [2:0] mem_config;
 
 /* Assigns */
-assign BIG_DATA_in = {8'b0,PPU_DATA_in};
+assign BIG_DATA_in = {8'b0, PPU_DATA_in};
+assign S_BIG_DATA_in = {8'b0, PPU_DATA_in};
 assign BIG_LY_SCY_MOD = {13'b0, LY[2:0] + SCY[2:0]};
 assign BIG_X = {8'b0,x_pos};
 
@@ -374,7 +376,7 @@ end
  *
  */
 
-/* BG Draw Machine */
+/* BG/Window Draw Machine */
 always_ff @(posedge clk) begin
 	if (rst) begin
 		pixels_pushed <= 1;
@@ -387,7 +389,7 @@ always_ff @(posedge clk) begin
 					if (LCDC[4]) begin
 						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
 					end else begin
-						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) - (BIG_DATA_in << 4));		// 8800-indexing
+						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (S_BIG_DATA_in << 4));		// 8800-indexing
 					end
 
 					if (LCDC[5]) begin
