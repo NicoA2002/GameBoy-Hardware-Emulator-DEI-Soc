@@ -67,8 +67,8 @@ end
 
 logic [15:0] READ_LX, READ_LY;
 
-assign READ_LX = LX > 160 ? LX - 160 : 0;
-assign READ_LY = LY > 48 ? LY - 48 : 0;
+assign READ_LX = LX > 80 ? LX - 80 : 0;
+assign READ_LY = LY > 24 ? LY - 24 : 0;
 
 logic [7:0] GB_LX, GB_LY;
 logic [2:0] GB_COL_CNT, GB_ROW_CNT;
@@ -77,38 +77,34 @@ logic [2:0] GB_COL_CNT, GB_ROW_CNT;
 parameter LINE_SCALE = 3; //repeat each pixel 3 times horizontally
 always_ff @(posedge clk_vga)
 begin
-	if (within_lx)
+	if (LX < 80 || LX >= 560) //outside screen x
 	begin
 		GB_LX <= 0;
 		GB_COL_CNT <= 0;
 	end
-	else
+	else begin
+		GB_COL_CNT <= GB_COL_CNT + 1; 
+	end
+	//ratio: 
+	//640/480 = 4/3 ; 480/432 = 10/9
+	//10/9 * 3/4 = 5/6
+	//??
+	if (GB_COL_CNT == 5) 
 	begin
-		GB_COL_CNT <= GB_COL_CNT + 1;
-		//print line buffer 3 times
-		if (GB_COL_CNT < LINE_SCALE) begin
-            line_buffer[1][GB_COL_CNT] <= GB_PIXEL;
-        end
+		GB_COL_CNT <= 0; //reset col count
+		GB_LX <= GB_LX + 1; //increment x pixel
 	end
 	
-	if (GB_COL_CNT == 5)
-	begin
-		GB_COL_CNT <= 0;
-		GB_LX <= GB_LX + 1;
-	end
-	
-    if (within_ly)
+    if (LY <= 24 || LY >= 456) //outside screen y
     begin
         GB_LY <= 0;
         GB_ROW_CNT <= 0;
-    end
-    else if (LX == 1)j
-    begin
+    end 
+	else if (LX == 1) begin 
         GB_ROW_CNT <= GB_ROW_CNT + 1;
     end
     
-    if (GB_ROW_CNT == 6)
-    begin
+    if (GB_ROW_CNT == 6) begin 
         GB_ROW_CNT <= 0;
         GB_LY <= GB_LY + 1;
     end
@@ -137,7 +133,7 @@ begin
    {VGA_R, VGA_G, VGA_B} = {8'h00, 8'h00, 8'h00};
    if (VGA_BLANK_n)
    begin
-		if (within_lx && within_ly)
+		if (LX >= 80 && LX <= 560 && LY >= 24 && LY <= 456)
 		begin
 			unique case (GB_PIXEL)
 				2'b11:
