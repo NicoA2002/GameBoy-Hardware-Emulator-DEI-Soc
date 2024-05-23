@@ -13,7 +13,7 @@
 module GameBoy_VGA
 (
 	input		logic				clk,
-	input logic GameBoy_clk, // the 2^22 Hz GameBoy clk for linebuffer
+	input logic GameBoy_clk, // the 2^22 Hz GameBoy clk for framebuffer
 	input		logic				reset,
 	input logic GameBoy_reset, // Reset synced to GameBoy clk
 	
@@ -73,8 +73,7 @@ assign READ_LY = LY > 24 ? LY - 24 : 0;
 logic [7:0] GB_LX, GB_LY;
 logic [2:0] GB_COL_CNT, GB_ROW_CNT;
 
-//parameters for scaling to VGA 480x432 (3x larger)
-parameter LINE_SCALE = 3; //repeat each pixel 3 times horizontally
+parameter LINE_SCALE = 3; //repeat each pixel 3 times 
 always_ff @(posedge clk_vga)
 begin
 	if (LX < 80 || LX >= 560) //outside screen x
@@ -85,14 +84,11 @@ begin
 	else begin
 		GB_COL_CNT <= GB_COL_CNT + 1; 
 	end
-	//ratio: 
-	//640/480 = 4/3 ; 480/432 = 10/9
-	//10/9 * 3/4 = 5/6
-	//??
-	if (GB_COL_CNT == 5) 
+
+	if (GB_COL_CNT == LINE_SCALE) 
 	begin
-		GB_COL_CNT <= 0; //reset col count
-		GB_LX <= GB_LX + 1; //increment x pixel
+		GB_COL_CNT <= 0; 
+		GB_LX <= GB_LX + 1; 
 	end
 	
     if (LY <= 24 || LY >= 456) //outside screen y
@@ -104,14 +100,20 @@ begin
         GB_ROW_CNT <= GB_ROW_CNT + 1;
     end
     
-    if (GB_ROW_CNT == 6) begin 
+    if (GB_ROW_CNT == LINE_SCALE) begin 
         GB_ROW_CNT <= 0;
         GB_LY <= GB_LY + 1;
     end
 end
 	
 
-Quartus_dual_port_dual_clk_ram #(.DATA_WIDTH(2), .ADDR_WIDTH(15),.DEPTH(23040)) LCD_FRAME_BUFFER0(.write_clk(~GameBoy_clk), .read_clk(~clk_vga), .data(LD), .we(PX_VALID), .write_addr(line_buffer), .read_addr({7'b0, GB_LX} + {2'b0, GB_LY, 5'b0} + {GB_LY, 7'b0}), .q(GB_PIXEL));
+Quartus_dual_port_dual_clk_ram_23040 LCD_FRAME_BUFFER0(
+	.write_clk(~GameBoy_clk),
+	.read_clk(~clk_vga), .data(LD),
+	.we(PX_VALID), .write_addr(frame_buffer_cnt),
+	.read_addr({7'b0, GB_LX} + {2'b0, GB_LY, 5'b0} + {GB_LY, 7'b0}),
+	.q(GB_PIXEL)
+);
 
 
 always_ff @(posedge clk)
@@ -231,28 +233,16 @@ module vga_counters
 
 	assign endOfField = vcount == VTOTAL - 1;
 
-	// Horizontal sync: from 0x520 to 0x5DF (0x57F)
-	// 101 0010 0000 to 101 1101 1111
 	assign VGA_HS = !( (hcount[10:8] == 3'b101) &
 				!(hcount[7:5] == 3'b111));
 	assign VGA_VS = !( vcount[9:1] == (VACTIVE + VFRONT_PORCH) / 2);
 
-	assign VGA_SYNC_n = 1'b0; // For putting sync on the green signal; unused
-	
-	// Horizontal active: 0 to 1279     Vertical active: 0 to 479
-	// 101 0000 0000  1280	       01 1110 0000  480
-	// 110 0011 1111  1599	       10 0000 1100  524
+	assign VGA_SYNC_n = 1'b0; 
+
 	assign VGA_BLANK_n = !( hcount[10] & (hcount[9] | hcount[8]) ) &
 				!( vcount[9] | (vcount[8:5] == 4'b1111) );
 
-	/* VGA_CLK is 25 MHz
-		*             __    __    __
-		* clk_vga    __|  |__|  |__|
-		*        
-		*             _____       __
-		* hcount[0]__|     |_____|
-		*/
-	assign VGA_CLK = hcount[0]; // 25 MHz clock: rising edge sensitive
+	assign VGA_CLK = clk_vga; // should be 25 MHz clock
 
 	assign LX = hcount_next;
 	assign LY = vcount_next;
