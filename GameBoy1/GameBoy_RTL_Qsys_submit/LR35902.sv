@@ -358,16 +358,16 @@ begin
             GB_Z80_D_in = {2'b11, FF00[5:4], P13, P12, P11, P10};
             if (GB_Z80_WR) FF00_NEXT = GB_Z80_D_out & 8'h30;
         end 
-        else if (GB_Z80_ADDR == 16'hFF01 || GB_Z80_ADDR == 16'hFF02) // Serial
+        else if (GB_Z80_ADDR == 16'hFF01 || GB_Z80_ADDR == 16'hFF02); // Serial
         else if (GB_Z80_ADDR == 16'hFF03) GB_Z80_D_in = 8'hFF; // Undocumented
-        else if (GB_Z80_ADDR >= 16'hFF04 && GB_Z80_ADDR <= 16'hFF07) // Timer
+        else if (GB_Z80_ADDR >= 16'hFF04 && GB_Z80_ADDR <= 16'hFF07); // Timer
         else if (GB_Z80_ADDR >= 16'hFF08 && GB_Z80_ADDR <= 16'hFF0E) GB_Z80_D_in = 8'hFF; // Undocumented
         else if (GB_Z80_ADDR == 16'hFF0F) //Interrupt Flag
         begin
             if (GB_Z80_RD) GB_Z80_D_in = {3'b111, FF0F[4:0]};
             if (GB_Z80_WR) FF0F_NEXT = GB_Z80_D_out;
         end
-        else if (GB_Z80_ADDR >= 16'hFF10 && GB_Z80_ADDR <= 16'hFF3F) // Sound
+        else if (GB_Z80_ADDR >= 16'hFF10 && GB_Z80_ADDR <= 16'hFF3F); // Sound
         else if (GB_Z80_ADDR >= 16'hFF40 && GB_Z80_ADDR <= 16'hFF4B) //PPU
         begin
             MMIO_PPU_WR = GB_Z80_WR;
@@ -375,7 +375,9 @@ begin
             GB_Z80_D_in = MMIO_PPU_DATA_in;
             MMIO_PPU_DATA_out = GB_Z80_D_out;
         end
-        else if (GB_Z80_ADDR >= 16'hFF4C && GB_Z80_ADDR <= 16'hFF7F) GB_Z80_D_in = 8'hFF; // Unusable
+	else if (GB_Z80_ADDR >= 16'hFF4C && GB_Z80_ADDR <= 16'hFF7F) begin 
+		GB_Z80_D_in = 8'hFF; // Unusable 
+	end
         else if (GB_Z80_ADDR >= 16'hFF80 && GB_Z80_ADDR < 16'hFFFF) // High Ram
         begin
             GB_Z80_D_in = DATA_HRAM_in;
