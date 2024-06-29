@@ -38,8 +38,8 @@ module GameBoy_VGA
 );
 
 // VGA signals
-logic [15:0] LX; //hcount
-logic [15:0] LY; //vcount
+logic [15:0] LX; //LX
+logic [15:0] LY; //LY
 
 logic [7:0]		bg_r, bg_g, bg_b;
 
@@ -181,15 +181,15 @@ endmodule
 module vga_counters
 (
 	input 	logic				clk_vga, reset,
-    output 	logic [15:0]  		LX, // hcount[15:0] is pixel column
-	output 	logic [15:0]  		LY, // vcount[9:0] is pixel row
+    output 	logic [15:0]  		LX, // LX[15:0] is pixel column
+	output 	logic [15:0]  		LY, // LY[9:0] is pixel row
 	output 	logic				VGA_CLK, VGA_HS, VGA_VS, VGA_BLANK_n, VGA_SYNC_n
 );
-//logic [15:0] hcount, vcount, hcount_next, vcount_next;
+//logic [15:0] LX, LY, hcount_next, vcount_next;
 	/*
 	* 640 X 480 VGA timing for a 50 MHz clock: one pixel every other cycle
 	* 
-	* HCOUNT 1599 0             1279       1599 0
+	* LX 1599 0             1279       1599 0
 	*             _______________              ________
 	* ___________|    Video      |____________|  Video
 	* 
@@ -198,7 +198,7 @@ module vga_counters
 	*       _______________________      _____________
 	* |____|       VGA_HS          |____|
 	*/
-	// Parameters for hcount
+	// Parameters for LX
 	parameter HACTIVE      = 11'd 1280,
 				HFRONT_PORCH = 11'd 32,
 				HSYNC        = 11'd 192,
@@ -206,7 +206,7 @@ module vga_counters
 				HTOTAL       = HACTIVE + HFRONT_PORCH + HSYNC +
 								HBACK_PORCH; // 1600
 	
-	// Parameters for vcount
+	// Parameters for LY
 	parameter VACTIVE      = 10'd 480,
 				VFRONT_PORCH = 10'd 10,
 				VSYNC        = 10'd 2,
@@ -217,35 +217,32 @@ module vga_counters
 	logic endOfLine;
    
 	always_ff @(posedge clk_vga or posedge reset)
-		if (reset)          hcount <= 0;
-		else if (endOfLine) hcount <= 0;
-		else  	         hcount <= hcount + 11'd 1;
+		if (reset)          LX <= 0;
+		else if (endOfLine) LX <= 0;
+		else  	         LX <= LX + 11'd 1;
 
-	assign endOfLine = hcount == HTOTAL - 1;
+	assign endOfLine = LX == HTOTAL - 1;
 		
 	logic endOfField;
 	
 	always_ff @(posedge clk_vga or posedge reset)
-		if (reset)          vcount <= 0;
+		if (reset)          LY <= 0;
 		else if (endOfLine)
-		if (endOfField)   vcount <= 0;
-		else              vcount <= vcount + 10'd 1;
+		if (endOfField)   LY <= 0;
+		else              LY <= LY + 10'd 1;
 
-	assign endOfField = vcount == VTOTAL - 1;
+	assign endOfField = LY == VTOTAL - 1;
 
-	assign VGA_HS = !( (hcount[10:8] == 3'b101) &
-				!(hcount[7:5] == 3'b111));
-	assign VGA_VS = !( vcount[9:1] == (VACTIVE + VFRONT_PORCH) / 2);
+	assign VGA_HS = !( (LX[10:8] == 3'b101) &
+				!(LX[7:5] == 3'b111));
+	assign VGA_VS = !( LY[9:1] == (VACTIVE + VFRONT_PORCH) / 2);
 
 	assign VGA_SYNC_n = 1'b0; 
 
-	assign VGA_BLANK_n = !( hcount[10] & (hcount[9] | hcount[8]) ) &
-				!( vcount[9] | (vcount[8:5] == 4'b1111) );
+	assign VGA_BLANK_n = !( LX[10] & (LX[9] | LX[8]) ) &
+				!( LY[9] | (LY[8:5] == 4'b1111) );
 
 	assign VGA_CLK = clk_vga; // should be 25 MHz clock
-
-	assign LX = hcount_next;
-	assign LY = vcount_next;
 
 endmodule
 
