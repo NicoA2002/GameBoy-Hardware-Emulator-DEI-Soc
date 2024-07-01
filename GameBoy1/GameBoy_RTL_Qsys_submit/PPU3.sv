@@ -239,7 +239,9 @@ logic ppu_addr_rst = ((PPU_MODE == PPU_H_BLANK)  && (dots >= 455)) || rst;
 /* -- Memory Loading machine -- */
 always_ff @(posedge clk) begin
 	if (ppu_addr_rst) begin
-		`PPU_ADDR_SET(`OAM_BASE_ADDR); 
+		PPU_ADDR <= (`OAM_BASE_ADDR); 
+		mem_config <= MEM_REQ; 
+		PPU_RD <= 1;
 	end
 	if (mem_config == MEM_LOAD) PPU_RD <= 0;
 	if (mem_config != MEM_NO_REQ) mem_config <= mem_config + 1;
