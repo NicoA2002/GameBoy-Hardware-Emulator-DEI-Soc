@@ -14,14 +14,14 @@
 `define NO_BOOT 0
 
 //make easier to use with intermediate address regs
+`define PPU_ADDR_SET(x) begin (PPU_ADDR) <= (x); mem_config <= MEM_REQ; PPU_RD <= 1; end
 `define PPU_ADDR_INC(x) `PPU_ADDR_SET(PPU_ADDR + x)
-`define PPU_ADDR_SET(x) (PPU_ADDR) <= (x); mem_config <= MEM_REQ; PPU_RD <= 1
 
+`define PPU_OAM_ADDR_SET(x) begin (PPU_OAM_ADDR) <= (x); mem_config <= MEM_REQ; PPU_OAM_RD <= 1; end
 `define PPU_OAM_ADDR_INC(x) `PPU_OAM_ADDR_SET(PPU_OAM_ADDR + x)
-`define PPU_OAM_ADDR_SET(x) (PPU_OAM_ADDR) <= (x); mem_config <= MEM_REQ; PPU_OAM_RD <= 1
 
+`define PPU_DRAW_ADDR_SET(x) begin (PPU_DRAW_ADDR) <= (x); mem_config <= MEM_REQ; PPU_DRAW_RD <= 1; end
 `define PPU_DRAW_ADDR_INC(x) `PPU_DRAW_ADDR_SET(PPU_DRAW_ADDR + x)
-`define PPU_DRAW_ADDR_SET(x) (PPU_DRAW_ADDR) <= (x); mem_config <= MEM_REQ; PPU_DRAW_RD <= 1
 
 /* Macros that set STAT flags */
 `define PPU_MODE_SET(x) PPU_MODE <= x; FF41[1:0] <= x
