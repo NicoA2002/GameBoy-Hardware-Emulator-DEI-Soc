@@ -408,6 +408,10 @@ end
  *
  */
 
+logic [15:0] BIG_DATA_inx16 = BIG_DATA_in << 4;
+logic signed [15:0] S_BIG_DATA_inx16 = S_BIG_DATA_in << 4;
+logic [15:0] BIG_LY_SCY_MODx2 = BIG_LY_SCY_MOD << 1;
+logic [15:0] WXCMOD3x2 = {13'h0, WXC[2:0]} << 1;
 
 /* BG/Window and Sprite Draw Machine */
 /*	
@@ -425,18 +429,18 @@ always_ff @(posedge clk) begin
 					bg_fetch_mode <= BG_ROW_1_LOAD;
 					
 					if (LCDC[4]) begin
-						(PPU_DRAW_ADDR) <= (`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4)); 
+						PPU_DRAW_ADDR <= `TILE_BASE + BIG_LY_SCY_MODx2 + BIG_DATA_inx16; 
 						mem_config <= MEM_REQ; 
 						PPU_DRAW_RD <= 1;		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
 					end else begin
-						(PPU_DRAW_ADDR) <= (`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (S_BIG_DATA_in << 4)); 
+						(PPU_DRAW_ADDR) <= (`TILE_BASE + BIG_LY_SCY_MODx2 + S_BIG_DATA_inx16); 
 						mem_config <= MEM_REQ; 
 						PPU_DRAW_RD <= 1;		// 8800-indexing
 					end
 
 					if (LCDC[5]) begin
 						if (LY >= WY && (x_pos + SCX >= real_wx)) begin
-							(PPU_DRAW_ADDR) <= (`TILE_BASE + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4)); 
+							(PPU_DRAW_ADDR) <= (`TILE_BASE + WXCMOD3x2 + BIG_DATA_inx16); 
 							mem_config <= MEM_REQ; 
 							PPU_DRAW_RD <= 1;		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
 						end
