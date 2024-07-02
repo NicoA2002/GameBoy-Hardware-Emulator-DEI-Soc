@@ -261,7 +261,6 @@ end
 always_ff @(posedge clk) begin
 
     if (rst) begin
-			x_pos <= 0;
 			dots <= 0;
 			`LY_UPDATE(0);
 			WXC <= 0;
@@ -420,7 +419,6 @@ end
  */
 always_ff @(posedge clk) begin
 	if (rst) begin
-		pixels_pushed <= 1;
 		sp_ind <= 0;
 	end else if (mem_config == MEM_NO_REQ) begin
 		if (PPU_MODE == PPU_DRAW) begin
@@ -584,6 +582,8 @@ assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160 || (x_pos <= 168 && 
 always_ff @(posedge clk) begin
 	if (rst) begin
 		ready_load <= 1;
+		pixels_pushed <= 1;
+		x_pos <= 0;
 	end else if (PPU_MODE == PPU_DRAW) begin
 		case (px_mix_mode)
 			MIX_LOAD: begin
