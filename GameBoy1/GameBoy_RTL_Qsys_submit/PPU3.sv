@@ -133,8 +133,8 @@ assign y_tile_off = (((({8'h0, LY} + {8'h0, SCY}) & 16'hFF) >> 3) << 5) & 16'h3F
 assign x_w_off = ((({8'b0, x_pos - real_wx} >> 3)) & 16'h3FFF);
 assign y_w_off = ((({8'h0, WXC}) >> 3) << 5) & 16'h3FFF;
 
-assign sp_real_x = sp_x_buff[sp_ind] - 8;
-assign real_wx = WX - 7;
+assign sp_real_x = sp_x_buff[sp_ind] - 8'd8;
+assign real_wx = WX - 8'd7;
 
 assign w_map_sel = (LCDC[6]) ? `BG_MAP_2_BASE_ADDR : `BG_MAP_1_BASE_ADDR;
 assign bg_map_sel = (LCDC[3]) ? `BG_MAP_2_BASE_ADDR : `BG_MAP_1_BASE_ADDR;
@@ -169,6 +169,7 @@ assign DMA = FF46;
 logic [7:0] FF47;
 assign BGP = FF47;
 
+//color palette corresponding to bit 4 of OAM memory, OBP0 and OBP1
 logic [7:0] FF48; 
 assign OBP0 = {FF48[7:2], 2'b00}; // Last 2 bits are not used
 
@@ -224,7 +225,7 @@ begin
     end
 end
 
-logic ppu_addr_rst = ((PPU_MODE == PPU_H_BLANK)  && (dots >= 455)) || rst;
+logic ppu_addr_rst = (((PPU_MODE == PPU_H_BLANK)  && (dots >= 455)) || rst);
 logic [15:0] PPU_OAM_ADDR;
 logic PPU_OAM_RD;
 logic [15:0] PPU_DRAW_ADDR;
@@ -243,9 +244,11 @@ always_ff @(posedge clk) begin
 		case (PPU_MODE)
             PPU_SCAN: begin
 				PPU_ADDR <= PPU_OAM_ADDR;
+				PPU_RD <= PPU_OAM_RD;
 			end
 			PPU_DRAW: begin 
 				PPU_ADDR <= PPU_DRAW_ADDR;
+				PPU_RD <= PPU_DRAW_RD;
 			end
 			PPU_H_BLANK: begin 
 			end
@@ -381,8 +384,8 @@ always_ff @(posedge clk) begin
 				end
 				sp_found <= 0;
 			end
-		end else PPU_OAM_ADDR <= PPU_ADDR;
-	end else PPU_OAM_ADDR <= PPU_ADDR;
+		end else PPU_OAM_ADDR <= PPU_ADDR; PPU_OAM_RD <= PPU_RD;
+	end else PPU_OAM_ADDR <= PPU_ADDR; PPU_OAM_RD <= PPU_RD;
 end 
 
 /*
@@ -570,8 +573,8 @@ always_ff @(posedge clk) begin
 				end
 			endcase
 
-		end else PPU_DRAW_ADDR <= PPU_ADDR;
-	end else PPU_DRAW_ADDR <= PPU_ADDR;
+		end else PPU_DRAW_ADDR <= PPU_ADDR; PPU_DRAW_RD <= PPU_RD;
+	end else PPU_DRAW_ADDR <= PPU_ADDR; PPU_DRAW_RD <= PPU_RD;
 end
 
 assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
