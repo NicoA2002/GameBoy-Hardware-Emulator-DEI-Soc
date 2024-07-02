@@ -225,7 +225,6 @@ begin
     end
 end
 
-logic ppu_addr_rst = (((PPU_MODE == PPU_H_BLANK)  && (dots >= 455)) || rst);
 logic [15:0] PPU_OAM_ADDR;
 logic PPU_OAM_RD;
 logic [15:0] PPU_DRAW_ADDR;
@@ -233,7 +232,7 @@ logic PPU_DRAW_RD;
 
 /* -- Memory Loading machine -- */
 always_ff @(posedge clk) begin
-	if (ppu_addr_rst) begin
+	if (((PPU_MODE == PPU_H_BLANK) && (dots >= 455)) || rst) begin
 		PPU_ADDR <= `OAM_BASE_ADDR; 
 		mem_config <= MEM_REQ; 
 		PPU_RD <= 1;
