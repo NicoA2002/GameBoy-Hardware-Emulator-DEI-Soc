@@ -13,16 +13,6 @@
 
 `define NO_BOOT 0
 
-//make easier to use with intermediate address regs
-`define PPU_ADDR_SET(x) begin (PPU_ADDR) <= (x); mem_config <= MEM_REQ; PPU_RD <= 1; end
-`define PPU_ADDR_INC(x) `PPU_ADDR_SET(PPU_ADDR + x)
-
-`define PPU_OAM_ADDR_SET(x) begin (PPU_OAM_ADDR) <= (x); mem_config <= MEM_REQ; PPU_OAM_RD <= 1; end
-`define PPU_OAM_ADDR_INC(x) `PPU_OAM_ADDR_SET(PPU_OAM_ADDR + x)
-
-`define PPU_DRAW_ADDR_SET(x) begin (PPU_DRAW_ADDR) <= (x); mem_config <= MEM_REQ; PPU_DRAW_RD <= 1; end
-`define PPU_DRAW_ADDR_INC(x) `PPU_DRAW_ADDR_SET(PPU_DRAW_ADDR + x)
-
 /* Macros that set STAT flags */
 `define PPU_MODE_SET(x) PPU_MODE <= x; FF41[1:0] <= x
 `define LY_UPDATE(x) LY <= x; FF41[2] <= (x == LYC); FF45 <= {7'b0, (x == LYC)};
@@ -235,11 +225,15 @@ begin
 end
 
 logic ppu_addr_rst = ((PPU_MODE == PPU_H_BLANK)  && (dots >= 455)) || rst;
+logic [15:0] PPU_OAM_ADDR;
+logic PPU_OAM_RD;
+logic [15:0] PPU_DRAW_ADDR;
+logic PPU_DRAW_RD;
 
 /* -- Memory Loading machine -- */
 always_ff @(posedge clk) begin
 	if (ppu_addr_rst) begin
-		PPU_ADDR <= (`OAM_BASE_ADDR); 
+		PPU_ADDR <= `OAM_BASE_ADDR; 
 		mem_config <= MEM_REQ; 
 		PPU_RD <= 1;
 	end
@@ -348,8 +342,7 @@ begin
 	end
 end
 
-logic [15:0] PPU_OAM_ADDR;
-logic PPU_OAM_RD;
+
 
 /* -- OAM Scan State Machine -- */
 always_ff @(posedge clk) begin
@@ -365,16 +358,26 @@ always_ff @(posedge clk) begin
 					sp_y_buff[sp_loaded] <= PPU_DATA_in;
 					sp_off_buff[sp_loaded] <= curr_off[7:0];
 					sp_found <= 1;
-					`PPU_OAM_ADDR_INC(1);	
+					
+					PPU_OAM_ADDR <= PPU_OAM_ADDR + 1;
+					mem_config <= MEM_REQ; 
+					PPU_OAM_RD <= 1;	
 				end else if (dots != 80) begin
-					`PPU_OAM_ADDR_INC(0);							// jumps to next sprite in OAM
+					PPU_OAM_ADDR <= PPU_OAM_ADDR; 
+					mem_config <= MEM_REQ; 
+					PPU_OAM_RD <= 1;							// jumps to next sprite in OAM
 				end
 			end else begin
 				if (sp_found) begin
 					sp_x_buff[sp_loaded - 1] <= PPU_DATA_in;
-					`PPU_OAM_ADDR_INC(3);							// jumps to next sprite in OAM
+					
+					PPU_OAM_ADDR <= PPU_OAM_ADDR + 3; 
+					mem_config <= MEM_REQ; 
+					PPU_OAM_RD <= 1;							// jumps to next sprite in OAM
 				end else begin
-					`PPU_OAM_ADDR_INC(4);
+					PPU_OAM_ADDR <= PPU_OAM_ADDR + 4; 
+					mem_config <= MEM_REQ; 
+					PPU_OAM_RD <= 1;
 				end
 				sp_found <= 0;
 			end
@@ -405,8 +408,7 @@ end
  *
  */
 
-logic [15:0] PPU_DRAW_ADDR;
-logic PPU_DRAW_RD;
+
 /* BG/Window and Sprite Draw Machine */
 /*	
  *	Sprite State machine iterates through detected sprites for a PPU_scanline,
@@ -423,14 +425,20 @@ always_ff @(posedge clk) begin
 					bg_fetch_mode <= BG_ROW_1_LOAD;
 					
 					if (LCDC[4]) begin
-						`PPU_DRAW_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
+						(PPU_DRAW_ADDR) <= (`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4)); 
+						mem_config <= MEM_REQ; 
+						PPU_DRAW_RD <= 1;		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
 					end else begin
-						`PPU_DRAW_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (S_BIG_DATA_in << 4));		// 8800-indexing
+						(PPU_DRAW_ADDR) <= (`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (S_BIG_DATA_in << 4)); 
+						mem_config <= MEM_REQ; 
+						PPU_DRAW_RD <= 1;		// 8800-indexing
 					end
 
 					if (LCDC[5]) begin
 						if (LY >= WY && (x_pos + SCX >= real_wx)) begin
-							`PPU_DRAW_ADDR_SET(`TILE_BASE + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
+							(PPU_DRAW_ADDR) <= (`TILE_BASE + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4)); 
+							mem_config <= MEM_REQ; 
+							PPU_DRAW_RD <= 1;		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
 						end
 					end
 					
@@ -449,7 +457,9 @@ always_ff @(posedge clk) begin
 					end else bg_tile_row[0] <= 8'h0;
 
 					bg_fetch_mode <= BG_ROW_2_LOAD;
-					`PPU_DRAW_ADDR_INC(1);
+					(PPU_DRAW_ADDR) <= (PPU_DRAW_ADDR + 1); 
+					mem_config <= MEM_REQ; 
+					PPU_DRAW_RD <= 1;
 				end
 				BG_ROW_2_LOAD: begin
 					if (LCDC[0]) begin
@@ -460,7 +470,9 @@ always_ff @(posedge clk) begin
 
 					if (w_check == W_BG_RUN) begin
 						bg_fetch_mode <= BG_TILE_NO_STORE;
-						`PPU_DRAW_ADDR_SET(w_map_sel + {x_w_off[15:3], 3'h0} + y_w_off);
+						(PPU_DRAW_ADDR) <= (w_map_sel + {x_w_off[15:3], 3'h0} + y_w_off); 
+						mem_config <= MEM_REQ; 
+						PPU_DRAW_RD <= 1; 
 						w_check <= W_MASK_RUN;
 					end else begin
 						bg_fetch_mode <= BG_READY;
@@ -477,7 +489,9 @@ always_ff @(posedge clk) begin
 							  sp_real_x + 8 > x_pos && sp_real_x + 8 <= x_pos + 8) && 
 							  	LCDC[1]) begin			// end of sprite in tile
 
-						`PPU_DRAW_ADDR_SET( `OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2);
+						(PPU_DRAW_ADDR) <= (`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2); 
+						mem_config <= MEM_REQ; 
+						PPU_DRAW_RD <= 1; 
 						sp_fetch_mode <= SP_TILE_LOAD;	
 						
 						if (x_pos == 0) gen_mask <= 8'hFF >> SCX[2:0];
@@ -505,17 +519,23 @@ always_ff @(posedge clk) begin
 				end
 				SP_TILE_LOAD: begin
 					sp_mask <= sp_mask & gen_mask;
-					`PPU_DRAW_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + ({BIG_DATA_in[15:1], tts} << 4));
+					(PPU_DRAW_ADDR) <= (`TILE_BASE + (BIG_LY_SCY_MOD << 1) + ({BIG_DATA_in[15:1], tts} << 4)); 
+					mem_config <= MEM_REQ; 
+					PPU_DRAW_RD <= 1; 
 					sp_fetch_mode <= SP_ROW_1_LOAD;
 				end
 				SP_ROW_1_LOAD: begin
 					sp_tile_row[0] <= PPU_DATA_in & sp_mask;
 					sp_fetch_mode <= SP_ROW_2_LOAD;
-					`PPU_DRAW_ADDR_INC(1);
+					(PPU_DRAW_ADDR) <= (PPU_DRAW_ADDR + 1); 
+					mem_config <= MEM_REQ; 
+					PPU_DRAW_RD <= 1;
 				end
 				SP_ROW_2_LOAD: begin
 					sp_tile_row[1] <= PPU_DATA_in & sp_mask;
-					`PPU_DRAW_ADDR_SET(`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3);
+					(PPU_DRAW_ADDR) <= (`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3); 
+					mem_config <= MEM_REQ; 
+					PPU_DRAW_RD <= 1; 
 					sp_fetch_mode <= SP_RUN_BG;
 				end
 				SP_RUN_BG: begin
@@ -524,14 +544,20 @@ always_ff @(posedge clk) begin
 					bg_fetch_mode <= BG_TILE_NO_STORE;
 					if (LY >= WY && ((x_pos + SCX >= real_wx) || (x_pos + SCX + 8 > real_wx)) && LCDC[5]) begin
 						if ((x_pos + SCX + 8 > real_wx) && (x_pos + SCX < real_wx)) begin											// In the middle of a tile
-							`PPU_DRAW_ADDR_SET(bg_map_sel + x_tile_off + y_tile_off);
+							(PPU_DRAW_ADDR) <= (bg_map_sel + x_tile_off + y_tile_off); 
+							mem_config <= MEM_REQ; 
+							PPU_DRAW_RD <= 1;
 							w_check <= W_BG_RUN; 
 						end else begin
-							`PPU_DRAW_ADDR_SET(w_map_sel + x_w_off + y_w_off);
+							(PPU_DRAW_ADDR) <= (w_map_sel + x_w_off + y_w_off); 
+							mem_config <= MEM_REQ; 
+							PPU_DRAW_RD <= 1;
 							w_check <= W_NO_EDGE;
 						end
 					end else begin
-						`PPU_DRAW_ADDR_SET(bg_map_sel + x_tile_off + y_tile_off);
+						(PPU_DRAW_ADDR) <= (bg_map_sel + x_tile_off + y_tile_off); 
+						mem_config <= MEM_REQ; 
+						PPU_DRAW_RD <= 1;
 						w_check <= W_NO_EDGE;
 					end
 					sp_fetch_mode <= SP_READY;
