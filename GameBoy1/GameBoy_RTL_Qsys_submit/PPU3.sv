@@ -292,13 +292,6 @@ always_ff @(posedge clk) begin
 		    	if (dots >= 455) begin					// we reached the end of the scanline
 					`LY_UPDATE(LY + 1);
 					`WXC_UPDATE(WXC + 1);
-					for (int i = 0; i < 10; i++) begin
-			            sp_x_buff[0] = 8'd0;
-			            sp_y_buff[0] = 8'd0;
-			            sp_off_buff[i] = 8'd0;
-			        end
-					x_pos <= 0;
-					sp_loaded <= 0;
 					dots <= 0;
 					`PPU_MODE_SET(PPU_SCAN);
 				end
@@ -383,6 +376,14 @@ always_ff @(posedge clk) begin
 				end
 				sp_found <= 0;
 			end
+		end else if (PPU_MODE == PPU_H_BLANK && dots>=455) begin
+			for (int i = 0; i < 10; i++) begin
+				sp_x_buff[0] = 8'd0;
+				sp_y_buff[0] = 8'd0;
+				sp_off_buff[i] = 8'd0;
+			end
+			x_pos <= 0;
+			sp_loaded <= 0;
 		end else PPU_OAM_ADDR <= PPU_ADDR; PPU_OAM_RD <= PPU_RD;
 	end else PPU_OAM_ADDR <= PPU_ADDR; PPU_OAM_RD <= PPU_RD;
 end 
