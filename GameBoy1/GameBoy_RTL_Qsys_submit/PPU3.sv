@@ -433,14 +433,14 @@ always_ff @(posedge clk) begin
 						mem_config <= MEM_REQ; 
 						PPU_DRAW_RD <= 1;		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
 					end else begin
-						(PPU_DRAW_ADDR) <= (`TILE_BASE + BIG_LY_SCY_MODx2 + S_BIG_DATA_inx16); 
+						PPU_DRAW_ADDR <= (`TILE_BASE + BIG_LY_SCY_MODx2 + S_BIG_DATA_inx16); 
 						mem_config <= MEM_REQ; 
 						PPU_DRAW_RD <= 1;		// 8800-indexing
 					end
 
 					if (LCDC[5]) begin
 						if (LY >= WY && (x_pos + SCX >= real_wx)) begin
-							(PPU_DRAW_ADDR) <= (`TILE_BASE + WXCMOD3x2 + BIG_DATA_inx16); 
+							PPU_DRAW_ADDR <= (`TILE_BASE + WXCMOD3x2 + BIG_DATA_inx16); 
 							mem_config <= MEM_REQ; 
 							PPU_DRAW_RD <= 1;		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
 						end
@@ -461,7 +461,7 @@ always_ff @(posedge clk) begin
 					end else bg_tile_row[0] <= 8'h0;
 
 					bg_fetch_mode <= BG_ROW_2_LOAD;
-					(PPU_DRAW_ADDR) <= (PPU_DRAW_ADDR + 1); 
+					PPU_DRAW_ADDR <= (PPU_DRAW_ADDR + 1); 
 					mem_config <= MEM_REQ; 
 					PPU_DRAW_RD <= 1;
 				end
@@ -474,7 +474,7 @@ always_ff @(posedge clk) begin
 
 					if (w_check == W_BG_RUN) begin
 						bg_fetch_mode <= BG_TILE_NO_STORE;
-						(PPU_DRAW_ADDR) <= (w_map_sel + {x_w_off[15:3], 3'h0} + y_w_off); 
+						PPU_DRAW_ADDR <= (w_map_sel + {x_w_off[15:3], 3'h0} + y_w_off); 
 						mem_config <= MEM_REQ; 
 						PPU_DRAW_RD <= 1; 
 						w_check <= W_MASK_RUN;
@@ -493,7 +493,7 @@ always_ff @(posedge clk) begin
 							  sp_real_x + 8 > x_pos && sp_real_x + 8 <= x_pos + 8) && 
 							  	LCDC[1]) begin			// end of sprite in tile
 
-						(PPU_DRAW_ADDR) <= (`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2); 
+						PPU_DRAW_ADDR <= (`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 2); 
 						mem_config <= MEM_REQ; 
 						PPU_DRAW_RD <= 1; 
 						sp_fetch_mode <= SP_TILE_LOAD;	
@@ -523,7 +523,7 @@ always_ff @(posedge clk) begin
 				end
 				SP_TILE_LOAD: begin
 					sp_mask <= sp_mask & gen_mask;
-					(PPU_DRAW_ADDR) <= (`TILE_BASE + (BIG_LY_SCY_MOD << 1) + ({BIG_DATA_in[15:1], tts} << 4)); 
+					PPU_DRAW_ADDR <= (`TILE_BASE + (BIG_LY_SCY_MOD << 1) + ({BIG_DATA_in[15:1], tts} << 4)); 
 					mem_config <= MEM_REQ; 
 					PPU_DRAW_RD <= 1; 
 					sp_fetch_mode <= SP_ROW_1_LOAD;
@@ -531,13 +531,13 @@ always_ff @(posedge clk) begin
 				SP_ROW_1_LOAD: begin
 					sp_tile_row[0] <= PPU_DATA_in & sp_mask;
 					sp_fetch_mode <= SP_ROW_2_LOAD;
-					(PPU_DRAW_ADDR) <= (PPU_DRAW_ADDR + 1); 
+					PPU_DRAW_ADDR <= (PPU_DRAW_ADDR + 1); 
 					mem_config <= MEM_REQ; 
 					PPU_DRAW_RD <= 1;
 				end
 				SP_ROW_2_LOAD: begin
 					sp_tile_row[1] <= PPU_DATA_in & sp_mask;
-					(PPU_DRAW_ADDR) <= (`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3); 
+					PPU_DRAW_ADDR <= (`OAM_BASE_ADDR + {8'b0, sp_off_buff[sp_ind]} + 3); 
 					mem_config <= MEM_REQ; 
 					PPU_DRAW_RD <= 1; 
 					sp_fetch_mode <= SP_RUN_BG;
@@ -548,18 +548,18 @@ always_ff @(posedge clk) begin
 					bg_fetch_mode <= BG_TILE_NO_STORE;
 					if (LY >= WY && ((x_pos + SCX >= real_wx) || (x_pos + SCX + 8 > real_wx)) && LCDC[5]) begin
 						if ((x_pos + SCX + 8 > real_wx) && (x_pos + SCX < real_wx)) begin											// In the middle of a tile
-							(PPU_DRAW_ADDR) <= (bg_map_sel + x_tile_off + y_tile_off); 
+							PPU_DRAW_ADDR <= (bg_map_sel + x_tile_off + y_tile_off); 
 							mem_config <= MEM_REQ; 
 							PPU_DRAW_RD <= 1;
 							w_check <= W_BG_RUN; 
 						end else begin
-							(PPU_DRAW_ADDR) <= (w_map_sel + x_w_off + y_w_off); 
+							PPU_DRAW_ADDR <= (w_map_sel + x_w_off + y_w_off); 
 							mem_config <= MEM_REQ; 
 							PPU_DRAW_RD <= 1;
 							w_check <= W_NO_EDGE;
 						end
 					end else begin
-						(PPU_DRAW_ADDR) <= (bg_map_sel + x_tile_off + y_tile_off); 
+						PPU_DRAW_ADDR <= (bg_map_sel + x_tile_off + y_tile_off); 
 						mem_config <= MEM_REQ; 
 						PPU_DRAW_RD <= 1;
 						w_check <= W_NO_EDGE;
