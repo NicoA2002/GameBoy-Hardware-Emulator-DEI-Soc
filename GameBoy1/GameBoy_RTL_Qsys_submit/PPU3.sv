@@ -190,6 +190,38 @@ assign WX = FF4B;
 assign IRQ_PPU_V_BLANK = (PPU_MODE == PPU_V_BLANK);
 assign IRQ_LCDC = (STAT[2] && STAT[6]) || (STAT[3] & ~|STAT[1:0]) || (STAT[4] & ~STAT[1] & STAT[0]) || (STAT[5] & STAT[1] & ~STAT[0]);  
 
+/*
+ *  Pixel Assigns
+*/
+assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
+assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160 || (x_pos <= 168 && SCX != 0));
+
+
+/* 
+ * If we detect a memory request we return back the current
+ * state of the register
+ */ 
+always_comb
+begin
+	if (RD) begin
+	    case (ADDR)
+	        16'hFF40: MMIO_DATA_in = FF40;
+	        16'hFF41: MMIO_DATA_in = {1'b1, FF41[6:0]};
+	        16'hFF42: MMIO_DATA_in = FF42;
+	        16'hFF43: MMIO_DATA_in = FF43;
+	        16'hFF44: MMIO_DATA_in = FF44;
+	        16'hFF45: MMIO_DATA_in = FF45;
+	        16'hFF46: MMIO_DATA_in = FF46;
+	        16'hFF47: MMIO_DATA_in = FF47;
+	        16'hFF48: MMIO_DATA_in = FF48;
+	        16'hFF49: MMIO_DATA_in = FF49;
+	        16'hFF4A: MMIO_DATA_in = FF4A;
+	        16'hFF4B: MMIO_DATA_in = FF4B;
+	        default : MMIO_DATA_in = 8'hFF;
+	    endcase
+	end
+end
+
 /* Register Assignment
  * 
  * 	if a register memory address is being indexed it gets updated here 
@@ -227,15 +259,35 @@ begin
     end
 end
 
-/* -- Memory Loading machine -- */
+/*
+ *
+ *  Implemented
+ *  Proper pixel mixing			o 
+ *  Interrupts					o 
+ * 	LCDC[0:3] 					o
+ *  LCDC[4]						o
+ * 	LCDC[5:7]					o
+ *  STAT flags					o
+ * 	Alternate BG Map			o
+ *  Alternate indexing			o
+ *  Window						o
+ * 	Tall sprites				o
+ *  SCX							o
+ * 	SCY							o
+ * 	X masking					o
+ *  Y masking 					o
+ * 	Memory usage				o
+ *  Vblank interrupts			o
+ *  Overlapping sprites			o  
+ *
+ */
+
 always_ff @(posedge clk) begin
+	/* -- Memory Loading machine -- */
 	if (mem_config == MEM_LOAD) PPU_RD <= 0;
 	if (mem_config != MEM_NO_REQ) mem_config <= mem_config + 1;
-end
-
-/* -- State Switching machine -- */
-always_ff @(posedge clk) begin
-
+	
+	/* -- State Switching machine -- */
     if (rst) begin
 			x_pos <= 0;
 			dots <= 0;
@@ -243,7 +295,7 @@ always_ff @(posedge clk) begin
 			WXC <= 0;
 			`PPU_ADDR_SET(`OAM_BASE_ADDR);
 			`PPU_MODE_SET(PPU_SCAN);
-    end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
+	end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
     	dots <= dots + 1;
 		/* -- Following block happens on a per scanline basis (456 dots per line) -- */
         case (PPU_MODE)
@@ -295,36 +347,9 @@ always_ff @(posedge clk) begin
 				end
 			end
         endcase
-    end
-end   
-
-/* 
- * If we detect a memory request we return back the current
- * state of the register
- */ 
-always_comb
-begin
-	if (RD) begin
-	    case (ADDR)
-	        16'hFF40: MMIO_DATA_in = FF40;
-	        16'hFF41: MMIO_DATA_in = {1'b1, FF41[6:0]};
-	        16'hFF42: MMIO_DATA_in = FF42;
-	        16'hFF43: MMIO_DATA_in = FF43;
-	        16'hFF44: MMIO_DATA_in = FF44;
-	        16'hFF45: MMIO_DATA_in = FF45;
-	        16'hFF46: MMIO_DATA_in = FF46;
-	        16'hFF47: MMIO_DATA_in = FF47;
-	        16'hFF48: MMIO_DATA_in = FF48;
-	        16'hFF49: MMIO_DATA_in = FF49;
-	        16'hFF4A: MMIO_DATA_in = FF4A;
-	        16'hFF4B: MMIO_DATA_in = FF4B;
-	        default : MMIO_DATA_in = 8'hFF;
-	    endcase
 	end
-end
 
-/* -- OAM Scan State Machine -- */
-always_ff @(posedge clk) begin
+	/* -- OAM Scan State Machine -- */
 	if (rst || PPU_MODE == PPU_H_BLANK) begin
 		sp_loaded <= 0;
 		sp_found <= 0;
@@ -351,37 +376,18 @@ always_ff @(posedge clk) begin
 			end
 		end
 	end
-end 
 
-/*
- *
- * We'll need to implement
- *  Proper pixel mixing			o 
- *  Interrupts					o 
- * 	LCDC[0:3] 					o
- *  LCDC[4]						o
- * 	LCDC[5:7]					o
- *  STAT flags					o
- * 	Alternate BG Map			o
- *  Alternate indexing			o
- *  Window						o
- * 	Tall sprites				o
- *  SCX							o
- * 	SCY							o
- * 	X masking					o
- *  Y masking 					o
- * 	Memory usage				o
- *  Vblank interrupts			o
- *  Overlapping sprites			o  
- *
- */
-
-/* BG/Window Draw Machine */
-always_ff @(posedge clk) begin
+	/* BG/Window Sprite Draw Machine 
+	*	State machine iterates through detected sprites for a PPU_scanline,
+	*	loads the rows into the sp_fifo and switches the bg drawing on
+	*/
 	if (rst) begin
 		pixels_pushed <= 1;
+		sp_ind <= 0;
+		ready_load <= 1;
 	end else if (mem_config == MEM_NO_REQ) begin
 		if (PPU_MODE == PPU_DRAW) begin
+			/* Background Fetch Machine */
 			case (bg_fetch_mode)
 				BG_TILE_NO_STORE: begin
 					bg_fetch_mode <= BG_ROW_1_LOAD;
@@ -433,20 +439,8 @@ always_ff @(posedge clk) begin
 				default: begin
 				end
 			endcase
-		end
-	end
-end
 
-/* SP Draw Machine 
-	
- *	State machine iterates through detected sprites for a PPU_scanline,
- *	loads the rows into the sp_fifo and switches the bg drawing on
- */
-always_ff @(posedge clk) begin
-	if (rst) begin
-		sp_ind <= 0;
-	end	else if (mem_config == MEM_NO_REQ) begin
-		if (PPU_MODE == PPU_DRAW) begin
+			/* Sprite Fetch Machine */
 			case (sp_fetch_mode)
 				SP_SEARCH: begin
 					if (sp_x_buff[sp_ind] >= 8 &&
@@ -519,20 +513,10 @@ always_ff @(posedge clk) begin
 				default: begin
 				end
 			endcase
-		end
-	end
-end
 
-assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
-assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160 || (x_pos <= 168 && SCX != 0));
-
-/* Pixel Mixing & Output Machine */ 
-always_ff @(posedge clk) begin
-	if (rst) begin
-		ready_load <= 1;
-	end else if (PPU_MODE == PPU_DRAW) begin
-		case (px_mix_mode)
-			MIX_LOAD: begin
+			/* Pixel Mixing & Output Machine */ 
+			case (px_mix_mode)
+				MIX_LOAD: begin
 					if (!ready_load) begin
 						pixels_pushed <= pixels_pushed - 1;
 					end
@@ -576,8 +560,10 @@ always_ff @(posedge clk) begin
 				default: begin
 				end
 		endcase 
+		end
 	end
-end
+
+end   
   
 endmodule
     
