@@ -201,7 +201,7 @@ assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160 || (x_pos <= 168 && 
  * If we detect a memory request we return back the current
  * state of the register
  */ 
-always_comb
+always_latch
 begin
 	if (RD) begin
 	    case (ADDR)
