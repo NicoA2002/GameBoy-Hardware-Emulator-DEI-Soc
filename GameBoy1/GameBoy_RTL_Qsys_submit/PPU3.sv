@@ -323,9 +323,9 @@ always_ff @(posedge clk) begin
 					`LY_UPDATE(LY + 1);
 					`WXC_UPDATE(WXC + 1);
 					for (int i = 0; i < 10; i++) begin
-			            sp_x_buff[0] = 8'd0;
-			            sp_y_buff[0] = 8'd0;
-			            sp_off_buff[i] = 8'd0;
+			            sp_x_buff[0] <= 8'd0;
+			            sp_y_buff[0] <= 8'd0;
+			            sp_off_buff[i] <= 8'd0;
 			        end
 					x_pos <= 0;
 					sp_loaded <= 0;
