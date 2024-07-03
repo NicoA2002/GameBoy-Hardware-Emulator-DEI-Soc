@@ -107,7 +107,7 @@ begin
 end
 	
 
-Quartus_dual_port_dual_clk_ram_23040 LCD_FRAME_BUFFER0(
+Quartus_dual_port_dual_clk_ram LCD_FRAME_BUFFER0(
 	.write_clk(~GameBoy_clk),
 	.read_clk(~clk_vga), .data(LD),
 	.we(PX_VALID), .write_addr(frame_buffer_cnt),

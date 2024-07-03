@@ -1,4 +1,4 @@
-module Quartus_dual_port_dual_clk_ram_23040
+module Quartus_dual_port_dual_clk_ram
 #(parameter DATA_WIDTH=2, parameter ADDR_WIDTH=15, parameter DEPTH = 23040)
 (
 	input [(DATA_WIDTH-1):0] data,
