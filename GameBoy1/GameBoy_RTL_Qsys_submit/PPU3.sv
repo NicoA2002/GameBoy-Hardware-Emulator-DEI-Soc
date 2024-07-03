@@ -272,8 +272,6 @@ always_ff @(posedge clk) begin
             PPU_SCAN: begin
 	    		if (dots == 79) begin
 					`PPU_MODE_SET(PPU_DRAW);
-					ready_load <= 1;
-					
 		    	end
 				if (LY >= 144) begin 
 					`PPU_MODE_SET(PPU_V_BLANK);
@@ -378,7 +376,6 @@ always_ff @(posedge clk) begin
 				sp_y_buff[0] = 8'd0;
 				sp_off_buff[i] = 8'd0;
 			end
-			x_pos <= 0;
 			sp_loaded <= 0;
 		end else PPU_OAM_ADDR <= PPU_ADDR; PPU_OAM_RD <= PPU_RD;
 	end else PPU_OAM_ADDR <= PPU_ADDR; PPU_OAM_RD <= PPU_RD;
@@ -634,6 +631,9 @@ always_ff @(posedge clk) begin
 	end else if (LCDC[7] && PPU_MODE == PPU_SCAN && dots==79) begin
 		pixels_pushed <= 1;
 		x_pos <= 0;
+		ready_load <= 1;
+	end else if (LCDC[7] && PPU_MODE == PPU_H_BLANK && dots>=455) begin
+		x_pos <= 0;	
 	end
 end
   
