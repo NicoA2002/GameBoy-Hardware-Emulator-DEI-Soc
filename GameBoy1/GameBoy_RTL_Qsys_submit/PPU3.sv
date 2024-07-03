@@ -222,14 +222,39 @@ begin
 	end
 end
 
-/* Register Assignment
- * 
- * 	if a register memory address is being indexed it gets updated here 
- *  -- As a warning the following may introduce timing oddities compared to other group
+
+/*
+ *
+ *  Implemented
+ *  Proper pixel mixing			o 
+ *  Interrupts					o 
+ * 	LCDC[0:3] 					o
+ *  LCDC[4]						o
+ * 	LCDC[5:7]					o
+ *  STAT flags					o
+ * 	Alternate BG Map			o
+ *  Alternate indexing			o
+ *  Window						o
+ * 	Tall sprites				o
+ *  SCX							o
+ * 	SCY							o
+ * 	X masking					o
+ *  Y masking 					o
+ * 	Memory usage				o
+ *  Vblank interrupts			o
+ *  Overlapping sprites			o  
+ *
  */
-always_ff @(posedge clk)
-begin
-    if (rst)
+
+always_ff @(posedge clk) begin
+
+	/* Register Assignment
+	* 
+	* 	if a register memory address is being indexed it gets updated here 
+	*  -- As a warning the following may introduce timing oddities compared to other group
+	*/
+
+	if (rst)
     begin
         FF40 <= `NO_BOOT ? 8'h91 : 0;
         FF41 <= 0;
@@ -257,32 +282,7 @@ begin
 	    FF4A <= (WR && (ADDR == 16'hFF4A)) ? MMIO_DATA_out : FF4A;
 	    FF4B <= (WR && (ADDR == 16'hFF4B)) ? MMIO_DATA_out : FF4B;
     end
-end
 
-/*
- *
- *  Implemented
- *  Proper pixel mixing			o 
- *  Interrupts					o 
- * 	LCDC[0:3] 					o
- *  LCDC[4]						o
- * 	LCDC[5:7]					o
- *  STAT flags					o
- * 	Alternate BG Map			o
- *  Alternate indexing			o
- *  Window						o
- * 	Tall sprites				o
- *  SCX							o
- * 	SCY							o
- * 	X masking					o
- *  Y masking 					o
- * 	Memory usage				o
- *  Vblank interrupts			o
- *  Overlapping sprites			o  
- *
- */
-
-always_ff @(posedge clk) begin
 	/* -- Memory Loading machine -- */
 	if (mem_config == MEM_LOAD) PPU_RD <= 0;
 	if (mem_config != MEM_NO_REQ) mem_config <= mem_config + 1;
