@@ -273,10 +273,7 @@ always_ff @(posedge clk) begin
 	    		if (dots == 79) begin
 					`PPU_MODE_SET(PPU_DRAW);
 					ready_load <= 1;
-					pixels_pushed <= 1;
-					x_pos <= 0;
-					bg_fetch_mode <= BG_PAUSE;
-					sp_fetch_mode <= SP_SEARCH;
+					
 		    	end
 				if (LY >= 144) begin 
 					`PPU_MODE_SET(PPU_V_BLANK);
@@ -375,7 +372,7 @@ always_ff @(posedge clk) begin
 				end
 				sp_found <= 0;
 			end
-		end else if (PPU_MODE == PPU_H_BLANK && dots>=455) begin
+		end else if (LCDC[7] && PPU_MODE == PPU_H_BLANK && dots>=455) begin
 			for (int i = 0; i < 10; i++) begin
 				sp_x_buff[0] = 8'd0;
 				sp_y_buff[0] = 8'd0;
@@ -571,6 +568,14 @@ always_ff @(posedge clk) begin
 				end
 			endcase
 
+			if (px_mix_mode==MIX_START) begin
+				bg_fetch_mode <= BG_PAUSE;
+				sp_fetch_mode <= SP_SEARCH;
+			end
+
+		end else if (LCDC[7] && PPU_MODE == PPU_SCAN && dots==79) begin
+			bg_fetch_mode <= BG_PAUSE;
+			sp_fetch_mode <= SP_SEARCH;
 		end else PPU_DRAW_ADDR <= PPU_ADDR; PPU_DRAW_RD <= PPU_RD;
 	end else PPU_DRAW_ADDR <= PPU_ADDR; PPU_DRAW_RD <= PPU_RD;
 end
@@ -619,17 +624,16 @@ always_ff @(posedge clk) begin
 					bg_fifo_go <= 1;
 					sp_fifo_go <= 1;
 
-
 					pixels_pushed <= 8; 
 					ready_load <= 0;
- 
-					bg_fetch_mode <= BG_PAUSE;
-					sp_fetch_mode <= SP_SEARCH;
 					px_mix_mode <= MIX_LOAD;
 				end
 				default: begin
 				end
 		endcase 
+	end else if (LCDC[7] && PPU_MODE == PPU_SCAN && dots==79) begin
+		pixels_pushed <= 1;
+		x_pos <= 0;
 	end
 end
   
