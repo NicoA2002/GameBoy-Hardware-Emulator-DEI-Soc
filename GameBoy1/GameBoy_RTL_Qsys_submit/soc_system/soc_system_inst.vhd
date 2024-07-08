@@ -1,10 +1,8 @@
 	component soc_system is
 		port (
-			audio_clk_clk                : out   std_logic;                                        -- clk
 			av_config_SDAT               : inout std_logic                     := 'X';             -- SDAT
 			av_config_SCLK               : out   std_logic;                                        -- SCLK
 			clk_clk                      : in    std_logic                     := 'X';             -- clk
-			gameboy_reset_reset          : in    std_logic                     := 'X';             -- reset
 			hps_hps_io_emac1_inst_TX_CLK : out   std_logic;                                        -- hps_io_emac1_inst_TX_CLK
 			hps_hps_io_emac1_inst_TXD0   : out   std_logic;                                        -- hps_io_emac1_inst_TXD0
 			hps_hps_io_emac1_inst_TXD1   : out   std_logic;                                        -- hps_io_emac1_inst_TXD1
@@ -80,17 +78,16 @@
 			vga_vga_hs                   : out   std_logic;                                        -- vga_hs
 			vga_vga_r                    : out   std_logic_vector(7 downto 0);                     -- vga_r
 			vga_vga_sync_n               : out   std_logic;                                        -- vga_sync_n
-			vga_vga_vs                   : out   std_logic                                         -- vga_vs
+			vga_vga_vs                   : out   std_logic;                                        -- vga_vs
+			gameboy_reset_reset          : in    std_logic                     := 'X'              -- reset
 		);
 	end component soc_system;
 
 	u0 : component soc_system
 		port map (
-			audio_clk_clk                => CONNECTED_TO_audio_clk_clk,                --     audio_clk.clk
 			av_config_SDAT               => CONNECTED_TO_av_config_SDAT,               --     av_config.SDAT
 			av_config_SCLK               => CONNECTED_TO_av_config_SCLK,               --              .SCLK
 			clk_clk                      => CONNECTED_TO_clk_clk,                      --           clk.clk
-			gameboy_reset_reset          => CONNECTED_TO_gameboy_reset_reset,          -- gameboy_reset.reset
 			hps_hps_io_emac1_inst_TX_CLK => CONNECTED_TO_hps_hps_io_emac1_inst_TX_CLK, --           hps.hps_io_emac1_inst_TX_CLK
 			hps_hps_io_emac1_inst_TXD0   => CONNECTED_TO_hps_hps_io_emac1_inst_TXD0,   --              .hps_io_emac1_inst_TXD0
 			hps_hps_io_emac1_inst_TXD1   => CONNECTED_TO_hps_hps_io_emac1_inst_TXD1,   --              .hps_io_emac1_inst_TXD1
@@ -166,6 +163,7 @@
 			vga_vga_hs                   => CONNECTED_TO_vga_vga_hs,                   --              .vga_hs
 			vga_vga_r                    => CONNECTED_TO_vga_vga_r,                    --              .vga_r
 			vga_vga_sync_n               => CONNECTED_TO_vga_vga_sync_n,               --              .vga_sync_n
-			vga_vga_vs                   => CONNECTED_TO_vga_vga_vs                    --              .vga_vs
+			vga_vga_vs                   => CONNECTED_TO_vga_vga_vs,                   --              .vga_vs
+			gameboy_reset_reset          => CONNECTED_TO_gameboy_reset_reset           -- gameboy_reset.reset
 		);
 

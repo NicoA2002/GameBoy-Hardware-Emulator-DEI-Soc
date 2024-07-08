@@ -1,10 +1,8 @@
 
 module soc_system (
-	audio_clk_clk,
 	av_config_SDAT,
 	av_config_SCLK,
 	clk_clk,
-	gameboy_reset_reset,
 	hps_hps_io_emac1_inst_TX_CLK,
 	hps_hps_io_emac1_inst_TXD0,
 	hps_hps_io_emac1_inst_TXD1,
@@ -80,13 +78,12 @@ module soc_system (
 	vga_vga_hs,
 	vga_vga_r,
 	vga_vga_sync_n,
-	vga_vga_vs);	
+	vga_vga_vs,
+	gameboy_reset_reset);	
 
-	output		audio_clk_clk;
 	inout		av_config_SDAT;
 	output		av_config_SCLK;
 	input		clk_clk;
-	input		gameboy_reset_reset;
 	output		hps_hps_io_emac1_inst_TX_CLK;
 	output		hps_hps_io_emac1_inst_TXD0;
 	output		hps_hps_io_emac1_inst_TXD1;
@@ -163,4 +160,5 @@ module soc_system (
 	output	[7:0]	vga_vga_r;
 	output		vga_vga_sync_n;
 	output		vga_vga_vs;
+	input		gameboy_reset_reset;
 endmodule

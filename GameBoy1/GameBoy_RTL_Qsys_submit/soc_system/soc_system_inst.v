@@ -1,9 +1,7 @@
 	soc_system u0 (
-		.audio_clk_clk                (<connected-to-audio_clk_clk>),                //     audio_clk.clk
 		.av_config_SDAT               (<connected-to-av_config_SDAT>),               //     av_config.SDAT
 		.av_config_SCLK               (<connected-to-av_config_SCLK>),               //              .SCLK
 		.clk_clk                      (<connected-to-clk_clk>),                      //           clk.clk
-		.gameboy_reset_reset          (<connected-to-gameboy_reset_reset>),          // gameboy_reset.reset
 		.hps_hps_io_emac1_inst_TX_CLK (<connected-to-hps_hps_io_emac1_inst_TX_CLK>), //           hps.hps_io_emac1_inst_TX_CLK
 		.hps_hps_io_emac1_inst_TXD0   (<connected-to-hps_hps_io_emac1_inst_TXD0>),   //              .hps_io_emac1_inst_TXD0
 		.hps_hps_io_emac1_inst_TXD1   (<connected-to-hps_hps_io_emac1_inst_TXD1>),   //              .hps_io_emac1_inst_TXD1
@@ -79,6 +77,7 @@
 		.vga_vga_hs                   (<connected-to-vga_vga_hs>),                   //              .vga_hs
 		.vga_vga_r                    (<connected-to-vga_vga_r>),                    //              .vga_r
 		.vga_vga_sync_n               (<connected-to-vga_vga_sync_n>),               //              .vga_sync_n
-		.vga_vga_vs                   (<connected-to-vga_vga_vs>)                    //              .vga_vs
+		.vga_vga_vs                   (<connected-to-vga_vga_vs>),                   //              .vga_vs
+		.gameboy_reset_reset          (<connected-to-gameboy_reset_reset>)           // gameboy_reset.reset
 	);
 
