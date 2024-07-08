@@ -38,14 +38,6 @@ module soc_system_top(
  input 	       ADC_DOUT,
  output        ADC_SCLK,
 
- ///////// AUD /////////
- input 	       AUD_ADCDAT,
- inout 	       AUD_ADCLRCK,
- inout 	       AUD_BCLK,
- output        AUD_DACDAT,
- inout 	       AUD_DACLRCK,
- output        AUD_XCK,
-
  ///////// CLOCK2 /////////
  input 	       CLOCK2_50,
 
@@ -278,7 +270,7 @@ module soc_system_top(
 	  .vga_vga_blank_n 					  (VGA_BLANK_N),
 	  .vga_vga_sync_n 						  (VGA_SYNC_N),
 	  
-	  /* SDRAM Conduit */
+	  /* SDRAM Conduit */ /*
 	  .sdram_addr(DRAM_ADDR),
 	  .sdram_ba(DRAM_BA),
 	  .sdram_cas_n(DRAM_CAS_N),
@@ -288,12 +280,12 @@ module soc_system_top(
 	  .sdram_dqm({DRAM_UDQM, DRAM_LDQM}),
 	  .sdram_ras_n(DRAM_RAS_N),
 	  .sdram_we_n(DRAM_WE_N),
-	  .sdram_clk_clk(DRAM_CLK),
+	  .sdram_clk_clk(DRAM_CLK), */
 	  
 	  .gameboy_reset_reset(~KEY[2] && ~KEY[3]),
 
 	/* red led */
-	.ledr_ledr(LEDR),
+	.ledr_ledr(LEDR)
 	
 	/* HEX display */
 	//.hex_display_hex0(HEX0),
@@ -306,13 +298,13 @@ module soc_system_top(
 	/* Button */
 	//.button_key(KEY)
 	/* audio */
-	.audio_clk_clk(AUD_XCK),
+	/*.audio_clk_clk(AUD_XCK),
 	.audio_BCLK(AUD_BCLK),
 	.audio_DACDAT(AUD_DACDAT),
 	.audio_DACLRCK(AUD_DACLRCK),
 	.av_config_SDAT(FPGA_I2C_SDAT),
 	.av_config_SCLK(FPGA_I2C_SCLK),
-	.reset_audio_reset(~KEY[0] && ~KEY[1])
+	.reset_audio_reset(~KEY[0] && ~KEY[1]) */
 
   );
 
@@ -334,8 +326,8 @@ module soc_system_top(
    //assign FPGA_I2C_SCLK = SW[0];
    //assign FPGA_I2C_SDAT = SW[1] ? SW[0] : 1'bZ;
 
-   assign GPIO_0 = SW[1] ? { 36{ SW[0] } } : 36'bZ;
-   assign GPIO_1 = SW[1] ? { 36{ SW[0] } } : 36'bZ;
+   assign GPIO_0 = SW[1] ? { 36{ SW[0] } } : {36{1'bz}};
+   assign GPIO_1 = SW[1] ? { 36{ SW[0] } } : {36{1'bz}};
 
    //assign HEX0 = { 7{ SW[1] } };
    //assign HEX1 = { 7{ SW[2] } };
