@@ -11,13 +11,13 @@ else
         PWD := $(shell pwd)
 
 CFLAGS = -Wall
-
+CC = gcc
 OBJECTS = main.o usbkeyboard.o
 
 default: module main
 
 user: $(OBJECTS)
-	cc $(CFLAGS) -o main $(OBJECTS) -lusb-1.0 
+	$(CC) $(CFLAGS) -o main $(OBJECTS) -lusb-1.0 
 
 module:
 	${MAKE} -C ${KERNEL_SOURCE} SUBDIRS=${PWD} modules
