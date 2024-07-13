@@ -57,8 +57,8 @@ always_ff @(posedge GameBoy_clk or posedge GameBoy_reset) begin
         frame_buffer_cnt <= 0;
         frame_buffer_switch <= 0;
     end else if (PX_VALID) begin
-		//size of frame buffer: (480*432)/3 = 207360
-        if (frame_buffer_cnt == (207359)) begin
+		//size of frame buffer: (480*432)/3 = 23039
+        if (frame_buffer_cnt == (23039)) begin
             frame_buffer_cnt <= 0;
 		end else begin frame_buffer_cnt <= frame_buffer_cnt + 1; //move through buffer
 		end
