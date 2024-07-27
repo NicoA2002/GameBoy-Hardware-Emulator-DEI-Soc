@@ -14,7 +14,7 @@ module PPU3
     input logic [7:0] MMIO_DATA_out,
     output logic [7:0] MMIO_DATA_in,
     
-    output logic IRQ_V_BLANK,
+    output logic IRQ_PPU_V_BLANK,
     output logic IRQ_LCDC,
     
     output logic [1:0] PPU_MODE,
@@ -91,7 +91,7 @@ logic [7:0] SP_MAP;
 shortint unsigned PPU_CNT, PPU_CNT_NEXT;
 logic [2:0] SCX_CNT, SCX_CNT_NEXT;
 
-//assign IRQ_V_BLANK = (LY == 144 && PPU_CNT == 0);
+//assign IRQ_PPU_V_BLANK = (LY == 144 && PPU_CNT == 0);
 
 // Sprite Logic
 logic isSpriteOnLine;
@@ -391,7 +391,7 @@ begin
     
     PX_valid = 0;
     
-    IRQ_V_BLANK = 0;
+    IRQ_PPU_V_BLANK = 0;
     
     if (LCDC[7]) // LCD Enable
     begin
@@ -520,7 +520,7 @@ begin
                     if (LY_NEXT == 144)
                     begin
                         PPU_STATE_NEXT = V_BLANK;
-                        IRQ_V_BLANK = 1;
+                        IRQ_PPU_V_BLANK = 1;
                     end
                 end
             end
