@@ -107,15 +107,13 @@ logic [7:0] MMIO_SOUND_DATA_in, MMIO_SOUND_DATA_out;
 
 SOUND2 GB_SOUND(.clk(!clk), .rst(rst), .ADDR(GB_Z80_ADDR), .WR(MMIO_SOUND_WR), .RD(MMIO_SOUND_RD), .MMIO_DATA_out(MMIO_SOUND_DATA_out),
                .MMIO_DATA_in(MMIO_SOUND_DATA_in), .SOUND_LEFT(LOUT), .SOUND_RIGHT(ROUT));
-
+*/
 // Timer
 logic MMIO_TIMER_WR, MMIO_TIMER_RD;
 logic [7:0] MMIO_TIMER_DATA_in, MMIO_TIMER_DATA_out;
 logic IRQ_TIMER;
 TIMER GB_TIMER (.clk(clk), .rst(rst), .ADDR(GB_Z80_ADDR), .WR(MMIO_TIMER_WR), .RD(MMIO_TIMER_RD), .MMIO_DATA_out(MMIO_TIMER_DATA_out),
                 .MMIO_DATA_in(MMIO_TIMER_DATA_in), .IRQ_TIMER(IRQ_TIMER));
-
-*/
 
 // DMA Controller
 logic [7:0] FF46;
@@ -212,6 +210,7 @@ begin
     FF0F_NEXT = FF0F;
     if (IRQ_V_BLANK) FF0F_NEXT[0] = 1;
     if (IRQ_LCDC) FF0F_NEXT[1] = 1;
+    if (IRQ_TIMER) FF0F_NEXT[2] = 1;
     FFFF_NEXT = FFFF;
     
     /* Memory Access Handlers */
