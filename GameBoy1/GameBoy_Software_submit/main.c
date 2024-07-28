@@ -168,9 +168,9 @@ int main(int argc, char *argv[])
     // JOYPAD INPUT CONTROL
 
     //struct usb_controller_packet packet;
-    unsigned char packet[8]
+    unsigned char packet[8];
     int transferred;
-    unsigned char pressed, joyp;
+    unsigned char pressed;
     //char keystate[20];
     //bool shift;
     //bool cap_state = 0;
@@ -213,7 +213,7 @@ int main(int argc, char *argv[])
    
     }
 
-    libusb_close(controller)
+    libusb_close(controller);
     return 0;
 }
 
