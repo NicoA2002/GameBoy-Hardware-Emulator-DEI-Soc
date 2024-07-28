@@ -96,3 +96,9 @@ void read_inputs(void)
 
 	libusb_close(controller);
 }
+
+int main()
+{
+	read_inputs();
+	return 0;
+}
