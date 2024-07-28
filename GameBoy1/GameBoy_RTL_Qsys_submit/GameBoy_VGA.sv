@@ -117,9 +117,9 @@ always_ff @(posedge clk)
 begin
 	if (reset) 
 	begin
-		bg_r <= 8'd192;
-		bg_g <= 8'd156;
-		bg_b <= 8'd14;
+		bg_r <= 8'd105;
+		bg_g <= 8'd179;
+		bg_b <= 8'd231;
 	end 
 	else if (chipselect && write)
 	begin
