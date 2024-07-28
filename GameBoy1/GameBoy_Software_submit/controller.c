@@ -67,6 +67,8 @@ void read_inputs(void)
 			EMPTY_PROCESS(packet[4], UP, pressed);
 			EMPTY_PROCESS(packet[3], LEFT, pressed);
 
+			printf("0x%X\n", pressed);
+
 			/* Effectively debounces by introducing a delay after input was recieved */
 			usleep(100 * 1000);
 		} else {
@@ -93,7 +95,7 @@ void read_inputs(void)
 
 	libusb_close(controller);
 }
- /*
+
 int main()
 {
 	read_inputs();
