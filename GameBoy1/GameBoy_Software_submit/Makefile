@@ -19,6 +19,11 @@ default: module main
 user: $(OBJECTS)
 	$(CC) $(CFLAGS) -o main $(OBJECTS) -lusb-1.0 
 
+controller_test: controller.o
+	$(CC) $(CFLAGS) -o controller_test controller.o -lusb-1.0
+
+controller.o: controller.c controller.h
+
 module:
 	${MAKE} -C ${KERNEL_SOURCE} SUBDIRS=${PWD} modules
 
