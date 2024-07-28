@@ -15,20 +15,20 @@
 #include <math.h>
 
 #include "game_boy.h"
-#include "controller.h"
+#include "usbkeyboard.h"
 #include "usb_HID_keys.h"
 
 #define CART_HEADER_ADDR 0x0100
 
 // Joypad keys (configure here)
-/*#define JOYPAD_RIGHT    KEY_D
+#define JOYPAD_RIGHT    KEY_D
 #define JOYPAD_LEFT     KEY_A
 #define JOYPAD_UP       KEY_W
 #define JOYPAD_DOWN     KEY_S
 #define JOYPAD_A        KEY_J
 #define JOYPAD_B        KEY_K
 #define JOYPAD_SELECT   KEY_O
-#define JOYPAD_START    KEY_I */
+#define JOYPAD_START    KEY_I
 
 // DE1-SoC H2F AXI bus address
 #define H2F_AXI_BASE    0xC0000000
@@ -73,7 +73,8 @@ int mmap_fd;    // /dev/mem file id
 void *h2f_virtual_base;  // H2F AXI bus virtual address
 volatile uint8_t * sdram_ptr = NULL;
 
-struct libusb_device_handle* controller;
+struct libusb_device_handle* keyboard;
+uint8_t endpoint_address;
 
 uint8_t joypad_reg; // bit 7-4: START, SELECT, B, A
                     // bit 3-0: DOWN, UP, LEFT, RIGHT
@@ -106,6 +107,24 @@ int main(int argc, char *argv[])
     ROM_name = strtok(tmp, ".");
     strcpy(SAV_FILE, ROM_name);
     strcat(SAV_FILE, ".sav");
+        
+    // check if joypad keys are valid (cannot be ESC or modifiers or SPACE)
+    uint8_t joypad_keys[8] = {
+        JOYPAD_UP, JOYPAD_DOWN, JOYPAD_LEFT, JOYPAD_RIGHT,
+        JOYPAD_A, JOYPAD_B, JOYPAD_START, JOYPAD_SELECT};
+
+    for (uint8_t i = 0; i < 8; i++)
+    {
+        if (joypad_keys[i] == KEY_ESC || joypad_keys[i] == KEY_SPACE ||
+            joypad_keys[i] == KEY_LEFTCTRL || joypad_keys[i] == KEY_RIGHTCTRL ||
+            joypad_keys[i] == KEY_LEFTSHIFT || joypad_keys[i] == KEY_RIGHTSHIFT ||
+            joypad_keys[i] == KEY_LEFTALT || joypad_keys[i] == KEY_RIGHTALT ||
+            joypad_keys[i] == KEY_LEFTMETA || joypad_keys[i] == KEY_RIGHTMETA)
+        {
+            printf("Not a valid joypad key! Please reconfigure! \n");
+            exit(1);
+        }
+    }    
 
     static const char filename[] = "/dev/game_boy";
     if ((GB_fd = open(filename, O_RDWR)) == -1) 
@@ -163,61 +182,209 @@ int main(int argc, char *argv[])
     *(sdram_ptr - 2) = ROM_bank >> 8;    // MSB
     *(sdram_ptr - 1) = 1;                // load complete
 
-    // 
-    
     // JOYPAD INPUT CONTROL
 
-    //struct usb_controller_packet packet;
-    unsigned char packet[8]
+    struct usb_keyboard_packet packet;
     int transferred;
-    unsigned char pressed, joyp;
-    //char keystate[20];
-    //bool shift;
-    //bool cap_state = 0;
-    //bool double_speed = 0;
+    char keystate[20];
+    bool shift;
+    bool cap_state = 0;
+    bool double_speed = 0;
 
-    /* Open the controller */
-    if ((controller = opencontroller()) == NULL) {
-        fprintf(stderr, "Did not find a controller, check Vendor/Product ID in controller.h\n");
+    /* Open the keyboard */
+    if ((keyboard = openkeyboard(&endpoint_address)) == NULL) {
+        fprintf(stderr, "Did not find a keyboard\n");
         exit(1);
     }
 
-    /* Look for and handle controller inputs, based on_read inputs but with ioctl transfers */
+    /* Look for and handle keypresses */
     for (;;)
     {
-        libusb_interrupt_transfer(controller, ENDPT_ADDR_IN,
-            (unsigned char *)& packet, sizeof(packet),
-            &transferred, 500);
+        libusb_interrupt_transfer(keyboard, endpoint_address,
+            (uint8_t*)& packet, sizeof(packet),
+            &transferred, 0);
+        if (transferred == sizeof(packet))
+        {
+            sprintf(keystate, "%02x %02x %02x %02x %02x %02x %02x", packet.modifiers, packet.keycode[0],
+                packet.keycode[1], packet.keycode[2], packet.keycode[3],
+                packet.keycode[4], packet.keycode[5]);
+            //printf("%s\n", keystate);
 
-        if (transferred > 0 && !EMPTY_INTERR(packet)) {			
-			/* --- Start/Select --- */
-			PROCESS(packet[6], SELECT, pressed);
-			PROCESS(packet[6], START, pressed);
+            shift = packet.modifiers == USB_LSHIFT || packet.modifiers == USB_RSHIFT;
 
-			/* --- A/B --- */
-			PROCESS(packet[5], A, pressed);
-			PROCESS(packet[5], B, pressed);
+            // will execute the last pressed key
+            if (packet.keycode[0] == KEY_ESC)   /* ESC pressed? */
+            {
+                if (RAM_size != 0)
+                {
+                    *(sdram_ptr - 1) = 0;
+                    save_RAM_to_SAV_file();
+                    printf("*************************************************\n");
+                }
+                break;
+            }
+            else if (packet.keycode[0] == KEY_SPACE)
+            {
+                double_speed = !double_speed;
+                *(sdram_ptr - 6) = double_speed;
+                if (double_speed)
+                    printf("Double speed: ON \n");
+                else
+                    printf("Double speed: ON \n");
+            }
+            else if (packet.keycode[0] == KEY_CAPSLOCK || packet.keycode[1] == KEY_CAPSLOCK ||
+                packet.keycode[2] == KEY_CAPSLOCK || packet.keycode[3] == KEY_CAPSLOCK ||
+                packet.keycode[4] == KEY_CAPSLOCK || packet.keycode[5] == KEY_CAPSLOCK)
+            {
+                cap_state = !cap_state;
+                if (cap_state)
+                    printf("CAPS on \n");
+                else
+                    printf("CAPS off \n");
+            }
+            else if (packet.keycode[5])
+            {
+                // convert usb keycodes to ASCII
+                char input_key = parse_printable_key(packet.keycode[5], shift, cap_state);
+                printf("Key5 pressed: %c \n", input_key);
 
-			/* --- D_Pad --- */
-			PROCESS(packet[4], DOWN, pressed);
-			PROCESS(packet[3], RIGHT, pressed);
-			EMPTY_PROCESS(packet[4], UP, pressed);
-			EMPTY_PROCESS(packet[3], LEFT, pressed);
+                uint8_t reg = 0;
+                for (uint8_t i = 0; i <= 5; i++)
+                {
+                    reg += update_joypad_status(packet.keycode[i]);
+                }
 
-			/* Effectively debounces by introducing a delay after input was recieved */
-			usleep(100 * 1000);
-            send_joypad_status(pressed);
-		} else {
-			pressed = 0x00;
-		}
-   
+                if (reg)
+                {
+                    joypad_reg = reg;
+                    send_joypad_status(joypad_reg);
+                }
+            }
+            else if (packet.keycode[4])
+            {
+                // convert usb keycodes to ASCII
+                char input_key = parse_printable_key(packet.keycode[4], shift, cap_state);
+                printf("Key4 pressed: %c \n", input_key);
+
+                uint8_t reg = 0;
+                for (uint8_t i = 0; i <= 4; i++)
+                {
+                    reg += update_joypad_status(packet.keycode[i]);
+                }
+
+                if (reg)
+                {
+                    joypad_reg = reg;
+                    send_joypad_status(joypad_reg);
+                }
+            }
+            else if (packet.keycode[3])
+            {
+                // convert usb keycodes to ASCII
+                char input_key = parse_printable_key(packet.keycode[3], shift, cap_state);
+                printf("Key3 pressed: %c \n", input_key);
+
+                uint8_t reg = 0;
+                for (uint8_t i = 0; i <= 3; i++)
+                {
+                    reg += update_joypad_status(packet.keycode[i]);
+                }
+
+                if (reg)
+                {
+                    joypad_reg = reg;
+                    send_joypad_status(joypad_reg);
+                }
+            }
+            else if (packet.keycode[2])
+            {
+                // convert usb keycodes to ASCII
+                char input_key = parse_printable_key(packet.keycode[2], shift, cap_state);
+                printf("Key2 pressed: %c \n", input_key);
+
+                uint8_t reg = 0;
+                for (uint8_t i = 0; i <= 2; i++)
+                {
+                    reg += update_joypad_status(packet.keycode[i]);
+                }
+
+                if (reg)
+                {
+                    joypad_reg = reg;
+                    send_joypad_status(joypad_reg);
+                }
+            }
+            else if (packet.keycode[1])
+            {
+                // convert usb keycodes to ASCII
+                char input_key = parse_printable_key(packet.keycode[1], shift, cap_state);
+                printf("Key1 pressed: %c \n", input_key);
+
+                uint8_t reg = 0;
+                for (uint8_t i = 0; i <= 1; i++)
+                {
+                    reg += update_joypad_status(packet.keycode[i]);
+                }
+
+                if (reg)
+                {
+                    joypad_reg = reg;
+                    send_joypad_status(joypad_reg);
+                }
+            }
+            else if (packet.keycode[0])
+            {
+                // convert usb keycodes to ASCII
+                char input_key = parse_printable_key(packet.keycode[0], shift, cap_state);
+                printf("Key0 pressed: %c \n", input_key);
+
+                uint8_t reg = update_joypad_status(packet.keycode[0]);
+                if (reg)
+                {
+                    joypad_reg = reg;
+                    send_joypad_status(joypad_reg);
+                }
+            }
+            else if (packet.keycode[0] == KEY_NONE)
+            {
+                joypad_reg = 0;
+                send_joypad_status(joypad_reg);
+            }
+        }
     }
 
-    libusb_close(controller)
     return 0;
 }
 
 // FUNCTION DEFINITIONS
+
+uint8_t update_joypad_status(uint8_t key)
+{
+    uint8_t reg;
+    switch (key)
+    {
+        case JOYPAD_RIGHT:
+            reg = (1 << 0); break;
+        case JOYPAD_LEFT:
+            reg = (1 << 1); break;
+        case JOYPAD_UP:
+            reg = (1 << 2); break;
+        case JOYPAD_DOWN:
+            reg = (1 << 3); break;
+        case JOYPAD_A:
+            reg = (1 << 4); break;
+        case JOYPAD_B:
+            reg = (1 << 5); break;
+        case JOYPAD_SELECT:
+            reg = (1 << 6); break;
+        case JOYPAD_START:
+            reg = (1 << 7); break;
+        default: 
+            reg = 0;
+    }
+    return reg;
+}
+
 void send_joypad_status(uint8_t reg)
 {
     uint8_t byte = reg;
@@ -226,6 +393,151 @@ void send_joypad_status(uint8_t reg)
     {
         perror("ioctl(GAME_BOY_SEND_JOYPAD_STATUS) failed");
         return;
+    }
+}
+
+char parse_printable_key(int key, bool mod, bool caps)
+{
+    if (key == KEY_BACKSPACE)
+    {
+        return 8;
+    }
+    if (key == KEY_ENTER || key == KEY_KPENTER)
+    {
+        return '\n';
+    }
+    switch (key)
+    {
+    case KEY_A:
+        return (mod ^ caps) ? 'A' : 'a';
+    case KEY_B:
+        return (mod ^ caps) ? 'B' : 'b';
+    case KEY_C:
+        return (mod ^ caps) ? 'C' : 'c';
+    case KEY_D:
+        return (mod ^ caps) ? 'D' : 'd';
+    case KEY_E:
+        return (mod ^ caps) ? 'E' : 'e';
+    case KEY_F:
+        return (mod ^ caps) ? 'F' : 'f';
+    case KEY_G:
+        return (mod ^ caps) ? 'G' : 'g';
+    case KEY_H:
+        return (mod ^ caps) ? 'H' : 'h';
+    case KEY_I:
+        return (mod ^ caps) ? 'I' : 'i';
+    case KEY_J:
+        return (mod ^ caps) ? 'J' : 'j';
+    case KEY_K:
+        return (mod ^ caps) ? 'K' : 'k';
+    case KEY_L:
+        return (mod ^ caps) ? 'L' : 'l';
+    case KEY_M:
+        return (mod ^ caps) ? 'M' : 'm';
+    case KEY_N:
+        return (mod ^ caps) ? 'N' : 'n';
+    case KEY_O:
+        return (mod ^ caps) ? 'O' : 'o';
+    case KEY_P:
+        return (mod ^ caps) ? 'P' : 'p';
+    case KEY_Q:
+        return (mod ^ caps) ? 'Q' : 'q';
+    case KEY_R:
+        return (mod ^ caps) ? 'R' : 'r';
+    case KEY_S:
+        return (mod ^ caps) ? 'S' : 's';
+    case KEY_T:
+        return (mod ^ caps) ? 'T' : 't';
+    case KEY_U:
+        return (mod ^ caps) ? 'U' : 'u';
+    case KEY_V:
+        return (mod ^ caps) ? 'V' : 'v';
+    case KEY_W:
+        return (mod ^ caps) ? 'W' : 'w';
+    case KEY_X:
+        return (mod ^ caps) ? 'X' : 'x';
+    case KEY_Y:
+        return (mod ^ caps) ? 'Y' : 'y';
+    case KEY_Z:
+        return (mod ^ caps) ? 'Z' : 'z';
+    case KEY_1:
+        return (mod) ? '!' : '1';
+    case KEY_2:
+        return (mod) ? '@' : '2';
+    case KEY_3:
+        return (mod) ? '#' : '3';
+    case KEY_4:
+        return (mod) ? '$' : '4';
+    case KEY_5:
+        return (mod) ? '%' : '5';
+    case KEY_6:
+        return (mod) ? '^' : '6';
+    case KEY_7:
+        return (mod) ? '&' : '7';
+    case KEY_8:
+        return (mod) ? '*' : '8';
+    case KEY_9:
+        return (mod) ? '(' : '9';
+    case KEY_0:
+        return (mod) ? ')' : '0';
+    case KEY_TAB:
+        return 9;
+    case KEY_SPACE:
+        return ' ';
+    case KEY_MINUS:
+        return (mod) ? '_' : '-';
+    case KEY_EQUAL:
+        return (mod) ? '+' : '=';
+    case KEY_LEFTBRACE:
+        return (mod) ? '{' : '[';
+    case KEY_RIGHTBRACE:
+        return (mod) ? '}' : ']';
+    case KEY_BACKSLASH:
+        return (mod) ? '|' : '\\';
+    case KEY_SEMICOLON:
+        return (mod) ? ':' : ';';
+    case KEY_APOSTROPHE:
+        return (mod) ? '"' : '\'';
+    case KEY_GRAVE:
+        return (mod) ? '~' : '`';
+    case KEY_COMMA:
+        return (mod) ? '<' : ',';
+    case KEY_DOT:
+        return (mod) ? '>' : '.';
+    case KEY_SLASH:
+        return (mod) ? '?' : '/';
+    case KEY_KPSLASH:
+        return '/';
+    case KEY_KPASTERISK:
+        return '*';
+    case KEY_KPMINUS:
+        return '-';
+    case KEY_KPPLUS:
+        return '+';
+    case KEY_KP1:
+        return '1';
+    case KEY_KP2:
+        return '2';
+    case KEY_KP3:
+        return '3';
+    case KEY_KP4:
+        return '4';
+    case KEY_KP5:
+        return '5';
+    case KEY_KP6:
+        return '6';
+    case KEY_KP7:
+        return '7';
+    case KEY_KP8:
+        return '8';
+    case KEY_KP9:
+        return '9';
+    case KEY_KP0:
+        return '0';
+    case KEY_KPDOT:
+        return '.';
+    default:
+        return ' ';
     }
 }
 
@@ -462,17 +774,9 @@ void read_cart_header(FILE * ptr)
             exit(1);
     }
     printf("- RAM size: %d bytes (%d banks) \n", RAM_size, RAM_bank);
-
-    // MBCs not supported in this version of hardware
-    if (MBC_num != 0)
-    {
-        printf("Memory Bank Controllers not yet implemented!\n");
-        exit(1);
-    }
-
 }
 
-// saves RAM contents (in SDRAM) to a SAV file, not mapped to controller yet
+// saves RAM contents (in SDRAM) to a SAV file
 void save_RAM_to_SAV_file()
 {
     FILE* save_ptr;

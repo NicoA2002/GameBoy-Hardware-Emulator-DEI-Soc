@@ -12,7 +12,7 @@ else
 
 CFLAGS = -Wall
 CC = gcc
-OBJECTS = main.o controller.o
+OBJECTS = main.o usbkeyboard.o
 
 default: module main
 
@@ -27,7 +27,7 @@ clean:
 	${RM} main
 	rm -rf *.o main 
 
-TARFILES = Makefile README controller.c controller.h game_boy.h game_boy.c main.c
+TARFILES = Makefile README usb_HID_keys.h usbkeyboard.c usbkeyboard.h game_boy.h game_boy.c main.c
 TARFILE = project.tar.gz
 .PHONY : tar
 tar : $(TARFILE)

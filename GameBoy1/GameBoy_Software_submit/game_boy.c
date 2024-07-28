@@ -1,9 +1,9 @@
 /* * Device driver for the Game Boy joypad
  *
  * A Platform device implemented using the misc subsystem
- *
+ * Original By:
  * Justin Hu
- * Columbia University
+ * Modified By: Nicolas Alarcon
  *
  * References:
  * Linux source: Documentation/driver-model/platform.txt
@@ -193,5 +193,5 @@ module_init(game_boy_init);
 module_exit(game_boy_exit);
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Justin Hu, Columbia University");
+MODULE_AUTHOR("Nicolas Alarcon, Columbia University");
 MODULE_DESCRIPTION("Game Boy joypad driver");
