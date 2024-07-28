@@ -53,7 +53,6 @@ void read_inputs(void)
 					    (unsigned char *) packet, 8,
 					     &transferred, 500);
 		if (transferred > 0 && !EMPTY_INTERR(packet)) {		
-			printf("Packet: 0x%X\n", packet);
 
 			/* --- Start/Select --- */
 			PROCESS(packet[6], SELECT, pressed);
