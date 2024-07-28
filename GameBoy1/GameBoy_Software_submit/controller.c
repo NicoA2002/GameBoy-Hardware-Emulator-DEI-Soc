@@ -89,7 +89,7 @@ void read_inputs(void)
 			joyp ^= (0x1 << 4);				// d-pad select
 			joyp &= (~(pressed & 0xF0) >> 4);
 		} 
-		printf("0x%X\n", joyp);
+		//printf("0x%X\n", joyp);
 
 		// here is where the send would take place
 	}
