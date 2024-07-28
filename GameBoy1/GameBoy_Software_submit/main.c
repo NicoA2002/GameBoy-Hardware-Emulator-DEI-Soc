@@ -204,6 +204,8 @@ int main(int argc, char *argv[])
 			EMPTY_PROCESS(packet[4], UP, pressed);
 			EMPTY_PROCESS(packet[3], LEFT, pressed);
 
+            // bytes are swapped, and not recognizing a header file change
+            pressed = ((pressed & 0x0F) << 4) | ((pressed & 0xF0) >> 4);
 			/* Effectively debounces by introducing a delay after input was recieved */
 			usleep(100 * 1000);
             send_joypad_status(pressed);

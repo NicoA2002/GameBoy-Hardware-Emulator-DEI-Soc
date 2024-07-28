@@ -68,7 +68,7 @@ void read_inputs(void)
 			EMPTY_PROCESS(packet[4], UP, pressed);
 			EMPTY_PROCESS(packet[3], LEFT, pressed);
 
-			printf("Pressed: 0x%X\n", pressed);
+			pressed = ((pressed & 0x0F) << 4) | ((pressed & 0xF0) >> 4)
 
 			/* Effectively debounces by introducing a delay after input was recieved */
 			usleep(100 * 1000);
