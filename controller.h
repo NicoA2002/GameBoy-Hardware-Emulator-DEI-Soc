@@ -33,7 +33,8 @@ enum detect_bits { SELECT_DET=0x10,
 				   LEFT_DET=0xFF };
 
 // 	DOWN_UP_LEFT_RIGHT_START_SELECT_B_A
-enum press_bits {A=0x1, B=0x2, START=0x8, SELECT=0x4, LEFT=0x20, RIGHT=0x10, UP=0x40, DOWN=0x80};
+enum press_bits {RIGHT=0x1, LEFT=0x2, UP=0x4, DOWN=0x8, A=0x10, B=0x20, SELECT=0x40, START=0x80};
+
 
 struct libusb_device_handle *opencontroller(void);
 void read_inputs(void);
