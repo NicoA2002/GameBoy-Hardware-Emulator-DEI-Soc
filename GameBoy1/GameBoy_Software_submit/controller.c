@@ -52,7 +52,9 @@ void read_inputs(void)
 		libusb_interrupt_transfer(controller, ENDPT_ADDR_IN,
 					    (unsigned char *) packet, 8,
 					     &transferred, 500);
-		if (transferred > 0 && !EMPTY_INTERR(packet)) {			
+		if (transferred > 0 && !EMPTY_INTERR(packet)) {		
+			printf("Packet: 0x%X\n", packet);
+
 			/* --- Start/Select --- */
 			PROCESS(packet[6], SELECT, pressed);
 			PROCESS(packet[6], START, pressed);
@@ -67,7 +69,7 @@ void read_inputs(void)
 			EMPTY_PROCESS(packet[4], UP, pressed);
 			EMPTY_PROCESS(packet[3], LEFT, pressed);
 
-			printf("0x%X\n", pressed);
+			printf("Pressed: 0x%X\n", pressed);
 
 			/* Effectively debounces by introducing a delay after input was recieved */
 			usleep(100 * 1000);
