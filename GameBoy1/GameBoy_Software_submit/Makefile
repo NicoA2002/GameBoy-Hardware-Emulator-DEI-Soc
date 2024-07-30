@@ -19,13 +19,16 @@ default: module main
 user: $(OBJECTS)
 	$(CC) $(CFLAGS) -o main $(OBJECTS) -lusb-1.0 
 
+keyboard: main_keyboard.o usbkeyboard.o
+	$(CC) $(CFLAGS) -o main_keyboard main_keyboard.o usbkeyboard.o -lusb-1.0 
+
 module:
 	${MAKE} -C ${KERNEL_SOURCE} SUBDIRS=${PWD} modules
 
 clean:
 	${MAKE} -C ${KERNEL_SOURCE} SUBDIRS=${PWD} clean
 	${RM} main
-	rm -rf *.o main 
+	rm -rf *.o main main_keyboard
 
 TARFILES = Makefile README controller.c controller.h game_boy.h game_boy.c main.c
 TARFILE = project.tar.gz
