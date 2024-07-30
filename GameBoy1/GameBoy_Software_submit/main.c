@@ -82,22 +82,21 @@ char SAV_FILE[200];
 // MAIN PROGRAM
 int main(int argc, char *argv[])
 {
-    char tempfilename[200];
-    tempfilename = NULL;
+    char tempfilearg = 0;
 
     unsigned char double_speed = 0;
     for (int i = 1; i<argc; i++){
         if (strcmp(argv[i], "-d") == 0) {
             double_speed = 1;
-        } else {tempfilename = argv[i];}
+        } else {tempfilearg = i;}
     }
 
-    if (tempfilename == NULL){
+    if (tempfilearg == 0){
         printf("Usage: %s <ROM file> [-d] \n", argv[0]);
         exit(1);
     }
 
-    strcpy(ROM_FILE, tmpfile);   
+    strcpy(ROM_FILE, argv[tempfilearg]);   
     char tmp[200];
     strcpy(tmp, ROM_FILE);
     ROM_name = strtok(tmp, ".");
