@@ -93,7 +93,7 @@ int main(int argc, char *argv[])
     for (int i = 1; i<argc; i++){
         if (strcmp(argv[i], "-d") == 0) {
             double_speed = 1;
-        } else {tmpfile = argv[i]}
+        } else {tmpfile = argv[i];}
     }
 
     strcpy(ROM_FILE, tmpfile);   
