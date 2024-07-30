@@ -16,7 +16,7 @@ OBJECTS = main.o controller.o
 
 default: module main
 
-user: $(OBJECTS)
+main: $(OBJECTS)
 	$(CC) $(CFLAGS) -o main $(OBJECTS) -lusb-1.0 
 
 keyboard: main_keyboard.o usbkeyboard.o
