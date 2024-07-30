@@ -77,23 +77,21 @@ uint8_t RAM_bank;   // number of RAM banks
 char ROM_FILE[200];
 char *ROM_name;
 char SAV_FILE[200];
-char tmpfile[200] = NULL;
+char *tmpfile;
 
 // MAIN PROGRAM
 int main(int argc, char *argv[])
 {
-
-    if (argc < 2)
-    {
-        printf("Usage: %s <ROM file> [-d] \n", argv[0]);
-        exit(1);
-    }
-
     unsigned char double_speed = 0;
     for (int i = 1; i<argc; i++){
         if (strcmp(argv[i], "-d") == 0) {
             double_speed = 1;
         } else {tmpfile = argv[i];}
+    }
+
+    if (tmpfile == NULL){
+        printf("Usage: %s <ROM file> [-d] \n", argv[0]);
+        exit(1);
     }
 
     strcpy(ROM_FILE, tmpfile);   
