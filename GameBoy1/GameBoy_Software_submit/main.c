@@ -20,16 +20,6 @@
 
 #define CART_HEADER_ADDR 0x0100
 
-// Joypad keys (configure here)
-/*#define JOYPAD_RIGHT    KEY_D
-#define JOYPAD_LEFT     KEY_A
-#define JOYPAD_UP       KEY_W
-#define JOYPAD_DOWN     KEY_S
-#define JOYPAD_A        KEY_J
-#define JOYPAD_B        KEY_K
-#define JOYPAD_SELECT   KEY_O
-#define JOYPAD_START    KEY_I */
-
 // DE1-SoC H2F AXI bus address
 #define H2F_AXI_BASE    0xC0000000
 #define H2F_AXI_SPAN    0x04000000
@@ -75,9 +65,6 @@ volatile uint8_t * sdram_ptr = NULL;
 
 struct libusb_device_handle* controller;
 
-uint8_t joypad_reg; // bit 7-4: START, SELECT, B, A
-                    // bit 3-0: DOWN, UP, LEFT, RIGHT
-
 // Cartridge information
 cart_header cart_info;
 uint8_t *cart_data; // pointer to cart data start address
@@ -90,17 +77,26 @@ uint8_t RAM_bank;   // number of RAM banks
 char ROM_FILE[200];
 char *ROM_name;
 char SAV_FILE[200];
+char tmpfile[200] = NULL;
 
 // MAIN PROGRAM
 int main(int argc, char *argv[])
 {
 
-    if (argc != 2)
+    if (argc < 2)
     {
-        printf("ERROR: no ROM file was specified. \n");
+        printf("Usage: %s <ROM file> [-d] \n", argv[0]);
         exit(1);
     }
-    strcpy(ROM_FILE, argv[1]);   
+
+    unsigned char double_speed = 0;
+    for (int i = 1; i<argc; i++){
+        if (strcmp(argv[i], "-d") == 0) {
+            double_speed = 1;
+        } else {tmpfile = argv[i]}
+    }
+
+    strcpy(ROM_FILE, tmpfile);   
     char tmp[200];
     strcpy(tmp, ROM_FILE);
     ROM_name = strtok(tmp, ".");
@@ -163,19 +159,18 @@ int main(int argc, char *argv[])
     *(sdram_ptr - 2) = ROM_bank >> 8;    // MSB
     *(sdram_ptr - 1) = 1;                // load complete
 
-    // 
+
+    *(sdram_ptr - 6) = double_speed;
+    if (double_speed)
+        printf("Double speed: ON \n");
+    else
+        printf("Double speed: OFF \n");
     
     // JOYPAD INPUT CONTROL
-
-    //struct usb_controller_packet packet;
     unsigned char packet[8];
     int transferred;
     unsigned char pressed;
     unsigned char last_pressed = 0;
-    //char keystate[20];
-    //bool shift;
-    //bool cap_state = 0;
-    //bool double_speed = 0;
 
     /* Open the controller */
     if ((controller = opencontroller()) == NULL) {
@@ -192,7 +187,6 @@ int main(int argc, char *argv[])
 
            
         if (transferred > 0 && !EMPTY_INTERR(packet)) {			
-            
 			/* --- Start/Select --- */
 			PROCESS(packet[6], SELECT, pressed);
 			PROCESS(packet[6], START, pressed);
