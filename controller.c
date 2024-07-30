@@ -92,7 +92,10 @@ void read_inputs(void)
 			usleep(100 * 1000);
 		} else {
 			pressed = 0x00;
-			if (have_pressed) printf("Pressed: 0x%X\n", pressed);
+			if (have_pressed) {
+				have_pressed = 0;
+				printf("Pressed: 0x%X\n", pressed);
+			}
 		}
 		
 		/* By definition of the register only buttons or only d-pad can be read 
