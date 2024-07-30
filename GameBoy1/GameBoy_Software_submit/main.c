@@ -171,6 +171,7 @@ int main(int argc, char *argv[])
     unsigned char packet[8];
     int transferred;
     unsigned char pressed;
+    unsigned char have_pressed = 0;
     //char keystate[20];
     //bool shift;
     //bool cap_state = 0;
@@ -205,12 +206,17 @@ int main(int argc, char *argv[])
 			EMPTY_PROCESS(packet[3], LEFT, pressed);
 
             // bytes are swapped, and not recognizing a header file change
+            have_pressed = 1;
             pressed = ((pressed & 0x0F) << 4) | ((pressed & 0xF0) >> 4);
 			/* Effectively debounces by introducing a delay after input was recieved */
 			usleep(100 * 1000);
             send_joypad_status(pressed);
 		} else {
 			pressed = 0x00;
+            if (have_pressed){
+                have_pressed = 0;
+                send_joypad_status(pressed);
+            }
 		}
    
     }
