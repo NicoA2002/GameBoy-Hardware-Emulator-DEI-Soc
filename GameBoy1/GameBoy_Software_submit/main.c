@@ -82,7 +82,7 @@ char SAV_FILE[200];
 // MAIN PROGRAM
 int main(int argc, char *argv[])
 {
-    char tempfilearg = 0;
+    int tempfilearg = 0;
 
     unsigned char double_speed = 0;
     for (int i = 1; i<argc; i++){
