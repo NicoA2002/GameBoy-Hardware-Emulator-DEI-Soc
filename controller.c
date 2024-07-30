@@ -39,7 +39,8 @@ void read_inputs(void)
 	struct libusb_device_handle *controller;
 	int transferred;
 	unsigned char packet[8];
-	unsigned char pressed, joyp;			// 	DOWN_UP_LEFT_RIGHT_START_SELECT_B_A
+	unsigned char pressed, joyp;
+	unsigned char have_pressed = 0;			// 	DOWN_UP_LEFT_RIGHT_START_SELECT_B_A
 
 	if ((controller = opencontroller()) == NULL) {
 	    fprintf(stderr, "Did not find a controller\n");
@@ -54,15 +55,15 @@ void read_inputs(void)
 					     &transferred, 500);
 
 		
-        if (transferred > 0){
-            printf("Packet0: 0x%X\n", packet[0]);
+        if (have_pressed){
+            printf("\nPacket0: 0x%X\n", packet[0]);
 			printf("Packet1: 0x%X\n", packet[1]);
 			printf("Packet2: 0x%X\n", packet[2]);
 			printf("Packet3: 0x%X\n", packet[3]);
 			printf("Packet4: 0x%X\n", packet[4]);
 			printf("Packet5: 0x%X\n", packet[5]);
 			printf("Packet6: 0x%X\n", packet[6]);
-			printf("Packet7: 0x%X\n", packet[7]);
+			printf("Packet7: 0x%X\n\n", packet[7]);
         }
 
 
@@ -83,6 +84,7 @@ void read_inputs(void)
 			EMPTY_PROCESS(packet[4], UP, pressed);
 			EMPTY_PROCESS(packet[3], LEFT, pressed);
 
+			have_pressed = 1;
 			pressed = ((pressed & 0x0F) << 4) | ((pressed & 0xF0) >> 4);
 			printf("Pressed: 0x%X\n", pressed);
 
@@ -90,6 +92,7 @@ void read_inputs(void)
 			usleep(100 * 1000);
 		} else {
 			pressed = 0x00;
+			if (have_pressed) printf("Pressed: 0x%X\n", pressed);
 		}
 		
 		/* By definition of the register only buttons or only d-pad can be read 
