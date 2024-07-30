@@ -52,6 +52,21 @@ void read_inputs(void)
 		libusb_interrupt_transfer(controller, ENDPT_ADDR_IN,
 					    (unsigned char *) packet, 8,
 					     &transferred, 500);
+
+		
+        if (transferred > 0){
+            printf("Packet0: 0x%X\n", packet[0]);
+			printf("Packet1: 0x%X\n", packet[1]);
+			printf("Packet2: 0x%X\n", packet[2]);
+			printf("Packet3: 0x%X\n", packet[3]);
+			printf("Packet4: 0x%X\n", packet[4]);
+			printf("Packet5: 0x%X\n", packet[5]);
+			printf("Packet6: 0x%X\n", packet[6]);
+			printf("Packet7: 0x%X\n", packet[7]);
+        }
+
+
+
 		if (transferred > 0 && !EMPTY_INTERR(packet)) {		
 
 			/* --- Start/Select --- */
