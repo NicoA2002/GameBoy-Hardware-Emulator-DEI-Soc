@@ -82,15 +82,17 @@ char SAV_FILE[200];
 // MAIN PROGRAM
 int main(int argc, char *argv[])
 {
-    char *tempfile = NULL;
+    char tempfilename[200];
+    tempfilename = NULL;
+
     unsigned char double_speed = 0;
     for (int i = 1; i<argc; i++){
         if (strcmp(argv[i], "-d") == 0) {
             double_speed = 1;
-        } else {tempfile = argv[i];}
+        } else {tempfilename = argv[i];}
     }
 
-    if (tempfile == NULL){
+    if (tempfilename == NULL){
         printf("Usage: %s <ROM file> [-d] \n", argv[0]);
         exit(1);
     }
