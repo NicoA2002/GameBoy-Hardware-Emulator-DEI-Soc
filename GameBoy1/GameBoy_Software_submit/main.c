@@ -190,7 +190,9 @@ int main(int argc, char *argv[])
             (unsigned char *)& packet, sizeof(packet),
             &transferred, 500);
 
+        pressed = 0x00;    
         if (transferred > 0 && !EMPTY_INTERR(packet)) {			
+            
 			/* --- Start/Select --- */
 			PROCESS(packet[6], SELECT, pressed);
 			PROCESS(packet[6], START, pressed);
@@ -212,7 +214,6 @@ int main(int argc, char *argv[])
 			usleep(100 * 1000);
             send_joypad_status(pressed);
 		} else {
-			pressed = 0x00;
             if (have_pressed){
                 have_pressed = 0;
                 send_joypad_status(pressed);
