@@ -31,8 +31,6 @@ void send_joypad_status(uint8_t reg);
 char parse_printable_key(int key, bool mod, bool caps);
 void read_cart();
 void read_cart_header(FILE* ptr);
-void save_RAM_to_SAV_file();
-void read_SAV_file();
 
 // TYPEDEFs
 
@@ -74,7 +72,6 @@ uint8_t MBC_num;    // MBC number
 uint8_t RAM_bank;   // number of RAM banks
 char ROM_FILE[200];
 char *ROM_name;
-char SAV_FILE[200];
 
 // MAIN PROGRAM
 int main(int argc, char *argv[])
@@ -98,8 +95,6 @@ int main(int argc, char *argv[])
     char tmp[200];
     strcpy(tmp, ROM_FILE);
     ROM_name = strtok(tmp, ".");
-    strcpy(SAV_FILE, ROM_name);
-    strcat(SAV_FILE, ".sav");
 
     static const char filename[] = "/dev/game_boy";
     if ((GB_fd = open(filename, O_RDWR)) == -1) 
@@ -139,15 +134,6 @@ int main(int argc, char *argv[])
     printf("*************************************************\n");
 
     sdram_ptr = (uint8_t *) (h2f_virtual_base + SDRAM_OFFSET);
-    if (RAM_size != 0)
-    {
-        for (int i = 0; i < RAM_size; i++)
-        {
-            *(sdram_ptr + i) = 0;         // clear RAM
-        }
-        read_SAV_file();
-        printf("*************************************************\n");
-    }
     
     // MBC info
     sdram_ptr = (uint8_t *) (h2f_virtual_base + SDRAM_OFFSET);
@@ -470,67 +456,4 @@ void read_cart_header(FILE * ptr)
 
 }
 
-// saves RAM contents (in SDRAM) to a SAV file, not mapped to controller yet
-void save_RAM_to_SAV_file()
-{
-    FILE* save_ptr;
-    save_ptr = fopen(SAV_FILE, "wb");
 
-    if (save_ptr == NULL)
-    {
-        printf("Unable to open the SAV file \"%s\"! \n", SAV_FILE);
-        exit(1);
-    }
-    else
-    {
-        printf("SAV file \"%s\" opened successfully! \n\n", SAV_FILE);
-
-        sdram_ptr = (uint8_t *) (h2f_virtual_base + SDRAM_OFFSET);
-
-        save_data = (uint8_t *)malloc(RAM_size);
-
-        printf("Saving game data... \n");
-        for (int i = 0; i < RAM_size; i++)
-        {
-            *(save_data + i) = *(sdram_ptr + i);
-        }
-
-        printf("Writing to file: %s \n", SAV_FILE);
-        fwrite(save_data, 1, RAM_size, save_ptr);
-        fclose(save_ptr);
-    }
-}
-
-void read_SAV_file()
-{
-    FILE* save_ptr;
-    save_ptr = fopen(SAV_FILE, "rb");
-
-    if (save_ptr == NULL)
-    {
-        printf("No SAV file was loaded \n");
-    }
-    else
-    {
-        printf("SAV file \"%s\" opened successfully! \n\n", SAV_FILE);
-
-        save_data = (uint8_t *)malloc(RAM_size);
-
-        fseek(save_ptr, 0, SEEK_SET);
-        for (int i = 0; i < RAM_size; i++)
-        {
-            fread(save_data + i, 1, 1, save_ptr);
-            //printf("Address %.4X: %.2X \n", i, *(save_data + i));
-            //printf("Address of save_data[%d] is: %p \n", i, (void *)(save_data+i));
-        }
-        fclose(save_ptr);
-
-        printf("Loading %d bytes of RAM into SDRAM...", RAM_size);
-        for (int i = 0; i < RAM_size; i++)
-        {
-            *(sdram_ptr + i) = *(save_data + i); 
-            //printf("SDRAM %.4X: %.2X \n", i, *(sdram_ptr+i));
-        }
-        printf("complete! \n");
-    }
-}
