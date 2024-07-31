@@ -12,26 +12,23 @@ else
 
 CFLAGS = -Wall
 CC = gcc
-OBJECTS = main.o controller.o
+OBJECTS = start.o controller.o
 
-default: module main
+default: module start
 
 main: $(OBJECTS)
-	$(CC) $(CFLAGS) -o main $(OBJECTS) -lusb-1.0 
-
-keyboard: main_keyboard.o usbkeyboard.o
-	$(CC) $(CFLAGS) -o main_keyboard main_keyboard.o usbkeyboard.o -lusb-1.0 
+	$(CC) $(CFLAGS) -o start $(OBJECTS) -lusb-1.0 
 
 module:
 	${MAKE} -C ${KERNEL_SOURCE} SUBDIRS=${PWD} modules
 
 clean:
 	${MAKE} -C ${KERNEL_SOURCE} SUBDIRS=${PWD} clean
-	${RM} main
-	rm -rf *.o main main_keyboard
+	${RM} start
+	rm -rf *.o start
 
-TARFILES = Makefile README controller.c controller.h game_boy.h game_boy.c main.c
-TARFILE = project.tar.gz
+TARFILES = Makefile README controller.c controller.h game_boy.h game_boy.c start.c
+TARFILE = final-sw.tar.gz
 .PHONY : tar
 tar : $(TARFILE)
 

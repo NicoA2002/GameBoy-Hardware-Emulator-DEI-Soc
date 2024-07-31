@@ -39,7 +39,7 @@ void read_inputs(void)
 	struct libusb_device_handle *controller;
 	int transferred;
 	unsigned char packet[8];
-	unsigned char pressed, joyp;			// 	DOWN_UP_LEFT_RIGHT_START_SELECT_B_A
+	unsigned char pressed, last_pressed;			// 	DOWN_UP_LEFT_RIGHT_START_SELECT_B_A
 
 	if ((controller = opencontroller()) == NULL) {
 	    fprintf(stderr, "Did not find a controller\n");
@@ -49,11 +49,12 @@ void read_inputs(void)
 	pressed = 0;
 	printf("Ready to read input\n");
 	while (1) {
-		libusb_interrupt_transfer(controller, ENDPT_ADDR_IN,
-					    (unsigned char *) packet, 8,
-					     &transferred, 500);
-		if (transferred > 0 && !EMPTY_INTERR(packet)) {		
+		        libusb_interrupt_transfer(controller, ENDPT_ADDR_IN,
+            (unsigned char *)& packet, sizeof(packet),
+            &transferred, 500);
 
+           
+        if (transferred > 0 && !EMPTY_INTERR(packet)) {			
 			/* --- Start/Select --- */
 			PROCESS(packet[6], SELECT, pressed);
 			PROCESS(packet[6], START, pressed);
@@ -68,30 +69,15 @@ void read_inputs(void)
 			EMPTY_PROCESS(packet[4], UP, pressed);
 			EMPTY_PROCESS(packet[3], LEFT, pressed);
 
-			pressed = ((pressed & 0x0F) << 4) | ((pressed & 0xF0) >> 4);
-
+            // bytes are swapped, and not recognizing a header file change
+            pressed = ((pressed & 0x0F) << 4) | ((pressed & 0xF0) >> 4);
 			/* Effectively debounces by introducing a delay after input was recieved */
 			usleep(100 * 1000);
-		} else {
-			pressed = 0x00;
+		} else if (transferred > 0){    
+            pressed = 0x00;        
 		}
-		
-		/* By definition of the register only buttons or only d-pad can be read 
-		 * at a single time so I chose to have buttons take precedence. (In theory
-		 * if you're walking and press 'a' you'd stop, do the action then continue) 
-		 */
-
-		joyp = 0x3F;						// register is active low
-		if (pressed & 0x0F) {
-			joyp ^= (0x1 << 5);				// button select
-			joyp &= ~(pressed & 0x0F);
-		} else if (pressed & 0xF0) {
-			joyp ^= (0x1 << 4);				// d-pad select
-			joyp &= (~(pressed & 0xF0) >> 4);
-		} 
-		//printf("0x%X\n", joyp);
-
-		// here is where the send would take place
+        if (last_pressed != pressed) printf("Pressed: 0x%X\n", pressed); //send to reg here
+        last_pressed = pressed;
 	}
 
 	libusb_close(controller);

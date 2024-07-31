@@ -1,8 +1,7 @@
 /* * Device driver for the Game Boy joypad
  *
  * A Platform device implemented using the misc subsystem
- * Original By:
- * Justin Hu
+ * Original By: Justin Hu
  * Modified By: Nicolas Alarcon
  *
  * References:
@@ -14,8 +13,6 @@
  * "make" to build
  * insmod game_boy.ko
  *
- * Check code style with
- * checkpatch.pl --file --no-tree game_boy.c
  */
 
 #include <linux/module.h>
@@ -35,9 +32,8 @@
 
 #define DRIVER_NAME "game_boy"
 
+/* Joypad Register */
 #define JOYPAD_REG(x)(x)
-
-// ****************************************************************************
 
 /*
  * Information about our device
@@ -55,8 +51,6 @@ static void write_joypad_register(uint8_t * reg)
     dev.joypad_status = *reg;
 }
 
-// ****************************************************************************
-
 /*
  * Handle ioctl() calls from userspace:
  * Read or write the segments on single digits.
@@ -67,21 +61,18 @@ static long game_boy_ioctl(struct file* f, unsigned int cmd, unsigned long arg)
     uint8_t joypad_reg;
 
     switch (cmd) {
-    case GAME_BOY_SEND_JOYPAD_STATUS:
+    case GAME_BOY_WRITE_JOYPAD:
         if (copy_from_user(&joypad_reg, (uint8_t*)arg,
             sizeof(uint8_t)))
             return -EACCES;
         write_joypad_register(&joypad_reg);
         break;
-
     default:
         return -EINVAL;
     }
 
     return 0;
 }
-
-// ****************************************************************************
 
 /* The operations our device knows how to do */
 static const struct file_operations game_boy_fops = {
@@ -91,12 +82,11 @@ static const struct file_operations game_boy_fops = {
 
 /* Information about our device for the "misc" framework -- like a char dev */
 static struct miscdevice game_boy_misc_device = {
-    .minor = MISC_DYNAMIC_MINOR,
-    .name = DRIVER_NAME,
-    .fops = &game_boy_fops,
+    .minor      = MISC_DYNAMIC_MINOR,
+    .name       = DRIVER_NAME,
+    .fops       = &game_boy_fops,
 };
 
-// ****************************************************************************
 
 /*
  * Initialization code: get resources (registers) and display
@@ -105,7 +95,6 @@ static struct miscdevice game_boy_misc_device = {
 static int __init game_boy_probe(struct platform_device* pdev)
 {
     uint8_t joypad_init = 0x00; // initialize joypad
-
     int ret;
 
     /* Register ourselves as a misc device: creates /dev/game_boy */
@@ -120,7 +109,7 @@ static int __init game_boy_probe(struct platform_device* pdev)
 
     /* Make sure we can use these registers */
     if (request_mem_region(dev.res.start, resource_size(&dev.res),
-        DRIVER_NAME) == NULL) {
+                    DRIVER_NAME) == NULL) {
         ret = -EBUSY;
         goto out_deregister;
     }
@@ -132,6 +121,7 @@ static int __init game_boy_probe(struct platform_device* pdev)
         goto out_release_mem_region;
     }
 
+    /* Set an initial state */
     write_joypad_register(&joypad_init);
 
     return 0;
@@ -152,8 +142,6 @@ static int game_boy_remove(struct platform_device* pdev)
     return 0;
 }
 
-// ****************************************************************************
-
 /* Which "compatible" string(s) to search for in the Device Tree */
 #ifdef CONFIG_OF
 static const struct of_device_id game_boy_of_match[] = {
@@ -166,8 +154,8 @@ MODULE_DEVICE_TABLE(of, game_boy_of_match);
 /* Information for registering ourselves as a "platform" driver */
 static struct platform_driver game_boy_driver = {
     .driver = {
-        .name = DRIVER_NAME,
-        .owner = THIS_MODULE,
+        .name   = DRIVER_NAME,
+        .owner  = THIS_MODULE,
         .of_match_table = of_match_ptr(game_boy_of_match),
     },
     .remove = __exit_p(game_boy_remove),
@@ -194,4 +182,4 @@ module_exit(game_boy_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Nicolas Alarcon, Columbia University");
-MODULE_DESCRIPTION("Game Boy joypad driver");
+MODULE_DESCRIPTION("Game Boy Joypad Driver");

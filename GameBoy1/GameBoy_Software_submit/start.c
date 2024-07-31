@@ -16,7 +16,6 @@
 
 #include "game_boy.h"
 #include "controller.h"
-#include "usb_HID_keys.h"
 
 #define CART_HEADER_ADDR 0x0100
 
@@ -56,7 +55,6 @@ typedef struct {
 } cart_header;
 
 // GLOBAL VARIABLES
-
 int GB_fd;  // ioctl file descriptor
 
 int mmap_fd;    // /dev/mem file id
@@ -78,10 +76,10 @@ char ROM_FILE[200];
 char *ROM_name;
 char SAV_FILE[200];
 
-
 // MAIN PROGRAM
 int main(int argc, char *argv[])
 {
+    // HANDLE COMMAND LINE ARGS
     int tempfilearg = 0;
 
     unsigned char double_speed = 0;
@@ -159,13 +157,13 @@ int main(int argc, char *argv[])
     *(sdram_ptr - 2) = ROM_bank >> 8;    // MSB
     *(sdram_ptr - 1) = 1;                // load complete
 
-
+    /* Double Speed Control */
     *(sdram_ptr - 6) = double_speed;
     if (double_speed)
         printf("Double speed: ON \n");
     else
         printf("Double speed: OFF \n");
-    
+
     // JOYPAD INPUT CONTROL
     unsigned char packet[8];
     int transferred;
@@ -178,7 +176,8 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    /* Look for and handle controller inputs, based on_read inputs but with ioctl transfers */
+    /* Handle NES Controller Inputs by sending only new values */
+    printf("READY!");
     for (;;)
     {
         libusb_interrupt_transfer(controller, ENDPT_ADDR_IN,
@@ -221,9 +220,9 @@ void send_joypad_status(uint8_t reg)
 {
     uint8_t byte = reg;
     printf("Joypad register is: %.2X \n", byte);
-    if (ioctl(GB_fd, GAME_BOY_SEND_JOYPAD_STATUS, &byte))
+    if (ioctl(GB_fd, GAME_BOY_WRITE_JOYPAD, &byte))
     {
-        perror("ioctl(GAME_BOY_SEND_JOYPAD_STATUS) failed");
+        perror("ioctl(GAME_BOY_WRITE_JOYPAD) failed");
         return;
     }
 }
