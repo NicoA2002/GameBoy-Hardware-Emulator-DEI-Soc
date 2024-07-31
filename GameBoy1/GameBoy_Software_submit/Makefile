@@ -16,7 +16,7 @@ OBJECTS = start.o controller.o
 
 default: module start
 
-main: $(OBJECTS)
+start: $(OBJECTS)
 	$(CC) $(CFLAGS) -o start $(OBJECTS) -lusb-1.0 
 
 module:
