@@ -188,6 +188,7 @@ begin
     OAM_ADDR = GB_Z80_ADDR[7:0];
     MMIO_PPU_WR = 0; MMIO_PPU_RD = 0; MMIO_PPU_DATA_out = 8'hFF;
     PPU_DATA_in = 8'hFF;
+    MMIO_TIMER_WR = 0; MMIO_TIMER_RD = 0; MMIO_TIMER_DATA_out = 8'hFF;
     
     /* Interrupt Register */
     FF00_NEXT = FF00;
@@ -343,7 +344,13 @@ begin
         end 
         else if (GB_Z80_ADDR == 16'hFF01 || GB_Z80_ADDR == 16'hFF02); // Serial
         else if (GB_Z80_ADDR == 16'hFF03) GB_Z80_D_in = 8'hFF; // Undocumented
-        else if (GB_Z80_ADDR >= 16'hFF04 && GB_Z80_ADDR <= 16'hFF07); // Timer
+        else if (GB_Z80_ADDR >= 16'hFF04 && GB_Z80_ADDR <= 16'hFF07) // Timer
+            begin
+            MMIO_TIMER_WR = GB_Z80_WR;
+            MMIO_TIMER_RD = GB_Z80_RD;
+            GB_Z80_D_in = MMIO_TIMER_DATA_in;
+            MMIO_TIMER_DATA_out = GB_Z80_D_out;
+        end
         else if (GB_Z80_ADDR >= 16'hFF08 && GB_Z80_ADDR <= 16'hFF0E) GB_Z80_D_in = 8'hFF; // Undocumented
         else if (GB_Z80_ADDR == 16'hFF0F) //Interrupt Flag
         begin
