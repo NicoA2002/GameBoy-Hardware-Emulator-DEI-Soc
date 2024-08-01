@@ -53,7 +53,7 @@ begin
     if (GameBoy_reset) begin
         frame_buffer_cnt <= 0;
         frame_buffer_switch <= 0;
-    end else if (PX_VALID) frame_buffer_cnt <= (frame_buffer_cnt == 23039) ? 0: frame_buffer_cnt + 1
+    end else if (PX_VALID) frame_buffer_cnt <= (frame_buffer_cnt == 23039) ? 0: frame_buffer_cnt + 1;
 end
 
 // 
