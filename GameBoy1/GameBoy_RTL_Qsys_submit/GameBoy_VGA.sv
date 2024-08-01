@@ -215,8 +215,8 @@ logic [15:0] hcount, vcount;
 					VBACK_PORCH  = 38,
 					VTOTAL       = VACTIVE + VFRONT_PORCH + VSYNC + VBACK_PORCH;	// 1066
 
-	logic endOfLine  = hcount == HTOTAL - 1;
-	logic endOfField = vcount == VTOTAL - 1;
+	logic endOfLine;
+	logic endOfField;
 	
 	always_ff @(posedge clk_vga or posedge reset)
 		if (reset)          hcount <= 0;
@@ -229,6 +229,9 @@ logic [15:0] hcount, vcount;
 			if (endOfField)   vcount <= 0;
 			else              vcount <= vcount + 1;
 	
+	assign endOfField = vcount == VTOTAL - 1;
+	assign endOfLine  = hcount == HTOTAL - 1;
+
 	// Horizontal and Vertical Sync -> From Graph
 	assign VGA_HS = !((hcount >= HACTIVE + HFRONT_PORCH) && (hcount < HACTIVE + HFRONT_PORCH + HSYNC));
 	assign VGA_VS = !((vcount >= VACTIVE + VFRONT_PORCH) && (vcount < VACTIVE + VFRONT_PORCH + VSYNC));
