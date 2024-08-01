@@ -91,23 +91,7 @@ assign P15 = FF00[5];
 assign P14 = FF00[4];
 logic [7:0] FF0F, FF0F_NEXT; // Interrupt Flag
 
-/*
-// Serial 
-logic MMIO_SERIAL_WR, MMIO_SERIAL_RD;
-logic [7:0] MMIO_SERIAL_DATA_in, MMIO_SERIAL_DATA_out;
-logic IRQ_SERIAL;
 
-Serial GB_SERIAL(.clk(clk), .reset(rst), .addr(GB_Z80_ADDR), .write(MMIO_SERIAL_WR), .read(MMIO_SERIAL_RD), 
-                .dout(MMIO_SERIAL_DATA_in), .din(MMIO_SERIAL_DATA_out), .SCK_in(SCK_in), .SCK_out(SCK_out),
-                .S_IN(S_IN), .S_OUT(S_OUT), .S_INTERRUPT(IRQ_SERIAL));
-
-// Sound
-logic MMIO_SOUND_WR, MMIO_SOUND_RD;
-logic [7:0] MMIO_SOUND_DATA_in, MMIO_SOUND_DATA_out;
-
-SOUND2 GB_SOUND(.clk(!clk), .rst(rst), .ADDR(GB_Z80_ADDR), .WR(MMIO_SOUND_WR), .RD(MMIO_SOUND_RD), .MMIO_DATA_out(MMIO_SOUND_DATA_out),
-               .MMIO_DATA_in(MMIO_SOUND_DATA_in), .SOUND_LEFT(LOUT), .SOUND_RIGHT(ROUT));
-*/
 // Timer
 logic MMIO_TIMER_WR, MMIO_TIMER_RD;
 logic [7:0] MMIO_TIMER_DATA_in, MMIO_TIMER_DATA_out;
