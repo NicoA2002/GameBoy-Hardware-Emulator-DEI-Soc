@@ -131,7 +131,7 @@ begin
 	end
 end
 
-// WISH GB Color Palette by Kerrie Lake 
+// Kirokaze GB Color Palette, tried to match blue but was ugly
 // GBPixel -> RGB Decoder
 always_comb 
 begin
@@ -143,35 +143,35 @@ begin
 			unique case (GB_PIXEL)
 				2'b11:
 				begin
-				    VGA_R = 98;
-				    VGA_G = 46;
-				    VGA_B = 76;
+				    VGA_R = 51;
+				    VGA_G = 44;
+				    VGA_B = 80;
 				end
 				2'b10:
 				begin
-				    VGA_R = 117;
-				    VGA_G = 80;
-				    VGA_B = 232;
+				    VGA_R = 70;
+				    VGA_G = 135;
+				    VGA_B = 143;
 				end
 				2'b01:
 				begin
-				    VGA_R = 96;
-				    VGA_G = 143;
-				    VGA_B = 207;
+				    VGA_R = 148;
+				    VGA_G = 227;
+				    VGA_B = 68;
 				end
 				2'b00:
 				begin
-				    VGA_R = 139;
-				    VGA_G = 229;
-				    VGA_B = 255;
+				    VGA_R = 226;
+				    VGA_G = 243;
+				    VGA_B = 228;
 				end
 			endcase
 			// Lines Between Pixels
 			if (GB_ROW_CNT == 0 || GB_COL_CNT == 0)
 			begin
-				VGA_R = 98;
-				VGA_G = 46;
-				VGA_B = 76;
+				VGA_R = 51;
+				VGA_G = 44;
+				VGA_B = 80;
 			end
 		end
 		else {VGA_R, VGA_G, VGA_B} = {bg_r, bg_g, bg_b};
