@@ -10,8 +10,8 @@
 
 module GameBoy_VGA
 (
-	input logic			clk, //only used for resetting background
-	input logic GameBoy_clk, // the 2^22 Hz GameBoy clk for framebuffer
+	input logic			clk, //only used for resetting background 67.1 MHz
+	input logic GameBoy_clk, // the 2^22 Hz GameBoy clk for framebuffer, from Cartridge
 	input logic			reset, //only used for resetting background
 	input logic GameBoy_reset, // Reset synced to GameBoy clk
 	
