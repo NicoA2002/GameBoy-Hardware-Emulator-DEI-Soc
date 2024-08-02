@@ -14,7 +14,7 @@
 `define NO_BOOT 0
 
 `define PPU_ADDR_INC(x) `PPU_ADDR_SET(PPU_ADDR + x)
-`define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ;
+`define PPU_ADDR_SET(x) PPU_ADDR <= x; // mem_config <= MEM_REQ;
 
 /* Macros that set STAT flags */
 `define PPU_MODE_SET(x) PPU_MODE <= x; FF41[1:0] <= x
@@ -119,7 +119,7 @@ logic [1:0] sp_out;
 logic [2:0] px_mix_mode;
 
 /* Dealayed Data Input */
-logic [2:0] mem_config;
+// logic [2:0] mem_config;
 
 /* Frame Reset */
 logic frame_rst;
@@ -273,7 +273,7 @@ always_ff @(posedge clk) begin
 
 	/* -- Memory Loading machine -- */
 	// if (mem_config == MEM_LOAD) PPU_RD <= 0;
-	if (mem_config != MEM_NO_REQ) mem_config <= mem_config + 1;
+	// if (mem_config != MEM_NO_REQ) mem_config <= mem_config + 1;
 	
 	frame_rst <= 0;
 	/* -- State Switching machine -- */
@@ -285,7 +285,8 @@ always_ff @(posedge clk) begin
 			`PPU_ADDR_SET(`OAM_BASE_ADDR);
 			`PPU_MODE_SET(PPU_SCAN);
 			PPU_RD <= 1;
-	end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
+	//end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
+	end else if (LCDC[7]) begin
     	dots <= dots + 1;
 		/* -- Following block happens on a per scanline basis (456 dots per line) -- */
         case (PPU_MODE)
@@ -348,7 +349,8 @@ always_ff @(posedge clk) begin
 	if (rst || frame_rst || PPU_MODE == PPU_H_BLANK) begin
 		sp_loaded <= 0;
 		sp_found <= 0;
-	end else if (mem_config == MEM_NO_REQ) begin
+	// end else if (mem_config == MEM_NO_REQ) begin
+	end else begin
 		if (PPU_MODE == PPU_SCAN) begin
 			if (!dots[0]) begin									// forces alternating clock dots
 				if (sp_in_range && sp_loaded < 10) begin
@@ -376,7 +378,8 @@ always_ff @(posedge clk) begin
 		pixels_pushed <= 1;
 		sp_ind <= 0;
 		ready_load <= 1;
-	end else if (mem_config == MEM_NO_REQ) begin
+	// end else if (mem_config == MEM_NO_REQ) begin
+	end else begin
 		if (PPU_MODE == PPU_DRAW) begin
 			/* Background Fetch Machine */
 			case (bg_fetch_mode)
