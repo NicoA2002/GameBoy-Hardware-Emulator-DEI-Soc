@@ -401,7 +401,7 @@ always_ff @(posedge clk) begin
 							end
 						end else begin
 							if (LY >= WY && (x_pos + SCX >= real_wx)) begin
-								`PPU_ADDR_SET(16'h9000 + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
+								`PPU_ADDR_SET(16'h9000 + ({13'h0, WXC[2:0]} << 1) + (S_BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
 							end
 						end
 					end
