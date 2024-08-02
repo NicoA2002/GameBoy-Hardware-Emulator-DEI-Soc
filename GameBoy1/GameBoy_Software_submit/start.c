@@ -161,13 +161,17 @@ int main(int argc, char *argv[])
         fprintf(stderr, "Did not find a controller, check Vendor/Product ID in controller.h\n");
         exit(1);
     }
+    
+    volatile uint8_t *lcdc_ptr = (h2f_virtual_base) + 0xFF40;
 
     /* Handle NES Controller Inputs by sending only new values */
     printf("READY!");
     for (;;)
     {
         //try to find LCDC
-        fprintf(stderr, "LCDC: 0x%x\n", *((uint8_t *) (h2f_virtual_base) + 0xFF40));
+        fprintf(stderr, "LCDC Bit6: 0x%x\n", (*lcdc_ptr) & 0x08);
+        fprintf(stderr, "LCDC Bit4: 0x%x\n", (*lcdc_ptr) & 0x10);
+        fprintf(stderr, "LCDC Bit3: 0x%x\n", (*lcdc_ptr) & 0x40);
 
         libusb_interrupt_transfer(controller, ENDPT_ADDR_IN,
             (unsigned char *)& packet, sizeof(packet),
