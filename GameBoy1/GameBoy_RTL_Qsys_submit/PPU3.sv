@@ -204,9 +204,11 @@ assign IRQ_LCDC = IRQ_STAT_NEXT && !IRQ_STAT;
 /*
  *  Pixel Assigns
 */
-assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
-assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160 || (x_pos <= 168 && SCX != 0));
+logic flush_buff;
+assign flush_buff = (PPU_MODE == PPU_DRAW) && !(ready_load & (pixels_pushed == 1)) && (pixels_pushed > 0);
 
+assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
+assign PX_valid = (flush_buff && (x_pos <= 160 || (x_pos <= 168 && SCX != 0)));
 /* 
  * If we detect a memory request we return back the current
  * state of the register
