@@ -169,9 +169,9 @@ int main(int argc, char *argv[])
     for (;;)
     {
         //try to find LCDC
-        fprintf(stderr, "LCDC Bit6: 0x%x\n", (*lcdc_ptr) & 0x08);
+        fprintf(stderr, "LCDC Bit6: 0x%x\n", (*lcdc_ptr) & 0x40);
         fprintf(stderr, "LCDC Bit4: 0x%x\n", (*lcdc_ptr) & 0x10);
-        fprintf(stderr, "LCDC Bit3: 0x%x\n\n", (*lcdc_ptr) & 0x40);
+        fprintf(stderr, "LCDC Bit3: 0x%x\n\n", (*lcdc_ptr) & 0x08);
 
         libusb_interrupt_transfer(controller, ENDPT_ADDR_IN,
             (unsigned char *)& packet, sizeof(packet),
