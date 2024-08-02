@@ -166,6 +166,9 @@ int main(int argc, char *argv[])
     printf("READY!");
     for (;;)
     {
+        //try to find LCDC
+        fprintf(stderr, "LCDC: 0x%x\n", *((uint8_t *) (h2f_virtual_base) + 0xFF40))
+
         libusb_interrupt_transfer(controller, ENDPT_ADDR_IN,
             (unsigned char *)& packet, sizeof(packet),
             &transferred, 500);
