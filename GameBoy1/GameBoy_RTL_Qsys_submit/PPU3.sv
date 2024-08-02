@@ -207,7 +207,6 @@ assign IRQ_LCDC = IRQ_STAT_NEXT && !IRQ_STAT;
 assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
 assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160 || (x_pos <= 168 && SCX != 0));
 
-
 /* 
  * If we detect a memory request we return back the current
  * state of the register
@@ -336,10 +335,6 @@ always_ff @(posedge clk) begin
 					`WXC_UPDATE(WXC + 1);
 					dots <= 0;
 					if (LY >= `MAX_LY) begin	// we are ready to render the next frame
-						// `LY_UPDATE(0);
-						// `WXC_UPDATE(0);
-						// `PPU_MODE_SET(PPU_SCAN);
-						// PPU_RD <= 1;
 						frame_rst <= 1;
 					end
 				end else begin
@@ -391,7 +386,7 @@ always_ff @(posedge clk) begin
 					if (LCDC[4]) begin
 						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
 					end else begin
-						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (S_BIG_DATA_in << 4));		// 8800-indexing
+						`PPU_ADDR_SET(16'h9000 + (BIG_LY_SCY_MOD << 1) + (S_BIG_DATA_in << 4));		// 8800-indexing
 					end
 
 					if (LCDC[5]) begin
