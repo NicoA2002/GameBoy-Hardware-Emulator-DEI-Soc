@@ -162,7 +162,6 @@ int main(int argc, char *argv[])
         exit(1);
     }
     
-    volatile uint8_t *lcdc_ptr = (h2f_virtual_base) + 0xFF40;
 
     /* Handle NES Controller Inputs by sending only new values */
     printf("READY!");
