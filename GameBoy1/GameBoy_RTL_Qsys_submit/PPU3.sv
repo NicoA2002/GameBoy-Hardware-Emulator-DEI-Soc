@@ -395,8 +395,14 @@ always_ff @(posedge clk) begin
 					end
 
 					if (LCDC[5]) begin
-						if (LY >= WY && (x_pos + SCX >= real_wx)) begin
-							`PPU_ADDR_SET(`TILE_BASE + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
+						if (LCDC[4]) begin
+							if (LY >= WY && (x_pos + SCX >= real_wx)) begin
+								`PPU_ADDR_SET(`TILE_BASE + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
+							end
+						end else begin
+							if (LY >= WY && (x_pos + SCX >= real_wx)) begin
+								`PPU_ADDR_SET(16'h9000 + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
+							end
 						end
 					end
 					
