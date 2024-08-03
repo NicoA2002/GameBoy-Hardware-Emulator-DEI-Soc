@@ -435,20 +435,20 @@ always_ff @(posedge clk) begin
 				end
 				BG_ROW_1_LOAD: begin
 					if (LCDC[0]) begin
-						bg_tile_row[0] <= PPU_DATA_in & gen_mask;
-						if (w_check == W_BG_RUN) bg_tile_row[0] <= PPU_DATA_in & w_mask;
-						if (w_check == W_MASK_RUN) bg_tile_row[0] <= bg_tile_row[0] | (PPU_DATA_in & w_mask);
-					end else bg_tile_row[0] <= 8'h0;
+						bg_tile_row[1] <= PPU_DATA_in & gen_mask;
+						if (w_check == W_BG_RUN) bg_tile_row[1] <= PPU_DATA_in & w_mask;
+						if (w_check == W_MASK_RUN) bg_tile_row[1] <= bg_tile_row[1] | (PPU_DATA_in & w_mask);
+					end else bg_tile_row[1] <= 8'h0;
 
 					bg_fetch_mode <= BG_ROW_2_LOAD;
 					`PPU_ADDR_INC(1);
 				end
 				BG_ROW_2_LOAD: begin
 					if (LCDC[0]) begin
-						bg_tile_row[1] <= PPU_DATA_in & gen_mask;
-						if (w_check == W_BG_RUN) bg_tile_row[1] <= PPU_DATA_in & w_mask;
-						if (w_check == W_MASK_RUN) bg_tile_row[1] <= bg_tile_row[1] | (PPU_DATA_in & w_mask);
-					end else bg_tile_row[1] <= 8'h0;
+						bg_tile_row[0] <= PPU_DATA_in & gen_mask;
+						if (w_check == W_BG_RUN) bg_tile_row[0] <= PPU_DATA_in & w_mask;
+						if (w_check == W_MASK_RUN) bg_tile_row[0] <= bg_tile_row[0] | (PPU_DATA_in & w_mask);
+					end else bg_tile_row[0] <= 8'h0;
 
 					if (w_check == W_BG_RUN) begin
 						bg_fetch_mode <= BG_TILE_NO_STORE;
