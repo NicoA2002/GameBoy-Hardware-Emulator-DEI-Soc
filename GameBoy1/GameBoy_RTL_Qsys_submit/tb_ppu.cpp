@@ -115,7 +115,7 @@ int main(int argc, const char ** argv, const char ** env)
 	    		} else if (!(update_reg & 0x04)) {	// WX
 	    			dut->WR = 1;
 	    			dut->ADDR = 0xFF4B;
-	    			dut->MMIO_DATA_out = 7 + 16 - 2;
+	    			dut->MMIO_DATA_out = 7 + 16;
 	    			update_reg |= 0x4;
 	    		} else
 	    			dut->WR = 0;

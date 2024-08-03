@@ -91,22 +91,6 @@ assign P15 = FF00[5];
 assign P14 = FF00[4];
 logic [7:0] FF0F, FF0F_NEXT; // Interrupt Flag
 
-/*
-// Serial 
-logic MMIO_SERIAL_WR, MMIO_SERIAL_RD;
-logic [7:0] MMIO_SERIAL_DATA_in, MMIO_SERIAL_DATA_out;
-logic IRQ_SERIAL;
-
-Serial GB_SERIAL(.clk(clk), .reset(rst), .addr(GB_Z80_ADDR), .write(MMIO_SERIAL_WR), .read(MMIO_SERIAL_RD), 
-                .dout(MMIO_SERIAL_DATA_in), .din(MMIO_SERIAL_DATA_out), .SCK_in(SCK_in), .SCK_out(SCK_out),
-                .S_IN(S_IN), .S_OUT(S_OUT), .S_INTERRUPT(IRQ_SERIAL));
-
-// Sound
-logic MMIO_SOUND_WR, MMIO_SOUND_RD;
-logic [7:0] MMIO_SOUND_DATA_in, MMIO_SOUND_DATA_out;
-
-SOUND2 GB_SOUND(.clk(!clk), .rst(rst), .ADDR(GB_Z80_ADDR), .WR(MMIO_SOUND_WR), .RD(MMIO_SOUND_RD), .MMIO_DATA_out(MMIO_SOUND_DATA_out),
-               .MMIO_DATA_in(MMIO_SOUND_DATA_in), .SOUND_LEFT(LOUT), .SOUND_RIGHT(ROUT));
 
 // Timer
 logic MMIO_TIMER_WR, MMIO_TIMER_RD;
@@ -114,8 +98,6 @@ logic [7:0] MMIO_TIMER_DATA_in, MMIO_TIMER_DATA_out;
 logic IRQ_TIMER;
 TIMER GB_TIMER (.clk(clk), .rst(rst), .ADDR(GB_Z80_ADDR), .WR(MMIO_TIMER_WR), .RD(MMIO_TIMER_RD), .MMIO_DATA_out(MMIO_TIMER_DATA_out),
                 .MMIO_DATA_in(MMIO_TIMER_DATA_in), .IRQ_TIMER(IRQ_TIMER));
-
-*/
 
 // DMA Controller
 logic [7:0] FF46;
@@ -151,7 +133,7 @@ logic PPU_RD;
 logic [7:0] PPU_DATA_in;
 logic [15:0] PPU_ADDR;
 PPU3 GB_PPU(.clk(clk), .rst(rst), .ADDR(GB_Z80_ADDR), .WR(MMIO_PPU_WR), .RD(MMIO_PPU_RD), .MMIO_DATA_out(MMIO_PPU_DATA_out), 
-            .MMIO_DATA_in(MMIO_PPU_DATA_in), .IRQ_V_BLANK(IRQ_V_BLANK), .IRQ_LCDC(IRQ_LCDC), .PPU_MODE(PPU_MODE),
+            .MMIO_DATA_in(MMIO_PPU_DATA_in), .IRQ_PPU_V_BLANK(IRQ_V_BLANK), .IRQ_LCDC(IRQ_LCDC), .PPU_MODE(PPU_MODE),
             .PPU_ADDR(PPU_ADDR), .PPU_RD(PPU_RD), .PPU_DATA_in(PPU_DATA_in), .PX_OUT(LD), .PX_valid(PX_VALID));
 
 
@@ -206,12 +188,14 @@ begin
     OAM_ADDR = GB_Z80_ADDR[7:0];
     MMIO_PPU_WR = 0; MMIO_PPU_RD = 0; MMIO_PPU_DATA_out = 8'hFF;
     PPU_DATA_in = 8'hFF;
+    MMIO_TIMER_WR = 0; MMIO_TIMER_RD = 0; MMIO_TIMER_DATA_out = 8'hFF;
     
     /* Interrupt Register */
     FF00_NEXT = FF00;
     FF0F_NEXT = FF0F;
     if (IRQ_V_BLANK) FF0F_NEXT[0] = 1;
     if (IRQ_LCDC) FF0F_NEXT[1] = 1;
+    if (IRQ_TIMER) FF0F_NEXT[2] = 1;
     FFFF_NEXT = FFFF;
     
     /* Memory Access Handlers */
@@ -360,7 +344,13 @@ begin
         end 
         else if (GB_Z80_ADDR == 16'hFF01 || GB_Z80_ADDR == 16'hFF02); // Serial
         else if (GB_Z80_ADDR == 16'hFF03) GB_Z80_D_in = 8'hFF; // Undocumented
-        else if (GB_Z80_ADDR >= 16'hFF04 && GB_Z80_ADDR <= 16'hFF07); // Timer
+        else if (GB_Z80_ADDR >= 16'hFF04 && GB_Z80_ADDR <= 16'hFF07) // Timer
+            begin
+            MMIO_TIMER_WR = GB_Z80_WR;
+            MMIO_TIMER_RD = GB_Z80_RD;
+            GB_Z80_D_in = MMIO_TIMER_DATA_in;
+            MMIO_TIMER_DATA_out = GB_Z80_D_out;
+        end
         else if (GB_Z80_ADDR >= 16'hFF08 && GB_Z80_ADDR <= 16'hFF0E) GB_Z80_D_in = 8'hFF; // Undocumented
         else if (GB_Z80_ADDR == 16'hFF0F) //Interrupt Flag
         begin
