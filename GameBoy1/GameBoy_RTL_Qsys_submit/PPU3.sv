@@ -1,6 +1,6 @@
 // Authors: Nicolas Alarcon, Claire Cizdziel, Donovan Sproule
 
-// `define DEBUG
+// `define MEM_CYCLE
 
 `define OAM_BASE_ADDR 16'hFE00
 `define OAM_END_ADDR 16'hFEA0
@@ -15,7 +15,7 @@
 `define NO_BOOT 0
 
 `define PPU_ADDR_INC(x) `PPU_ADDR_SET(PPU_ADDR + x)
-`ifdef DEBUG
+`ifdef MEM_CYCLE
 `define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ;
 `else
 `define PPU_ADDR_SET(x) PPU_ADDR <= x;
@@ -127,7 +127,7 @@ logic [1:0] sp_out;
 logic [2:0] px_mix_mode;
 
 /* Dealayed Data Input */
-`ifdef DEBUG
+`ifdef MEM_CYCLE
 logic [2:0] mem_config;
 `endif
 
@@ -289,7 +289,7 @@ always_ff @(posedge clk) begin
     end
 
 	/* -- Memory Loading machine -- */
-`ifdef DEBUG
+`ifdef MEM_CYCLE
 	if (mem_config != MEM_NO_REQ) mem_config <= mem_config + 1;
 `endif
 	
@@ -303,7 +303,7 @@ always_ff @(posedge clk) begin
 			`PPU_ADDR_SET(`OAM_BASE_ADDR);
 			`PPU_MODE_SET(PPU_SCAN);
 			PPU_RD <= 1;
-`ifdef  DEBUG
+`ifdef  MEM_CYCLE
 	end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
 `else
 	end else if (LCDC[7]) begin
@@ -370,7 +370,7 @@ always_ff @(posedge clk) begin
 	if (rst || frame_rst || PPU_MODE == PPU_H_BLANK) begin
 		sp_loaded <= 0;
 		sp_found <= 0;
-`ifdef DEBUG
+`ifdef MEM_CYCLE
 	end else if (mem_config == MEM_NO_REQ) begin
 `else
 	end else begin
@@ -394,7 +394,7 @@ always_ff @(posedge clk) begin
 		end
 	end
 
-`ifdef DEBUG
+`ifdef MEM_CYCLE
 	if (PPU_MODE == PPU_DRAW && px_mix_mode == MIX_LOAD)
 		if (!ready_load && pixels_pushed > 0) pixels_pushed <= pixels_pushed - 1;
 `endif
@@ -407,7 +407,7 @@ always_ff @(posedge clk) begin
 		pixels_pushed <= 4'hA;
 		sp_ind <= 0;
 		ready_load <= 1;
-`ifdef DEBUG
+`ifdef MEM_CYCLE
 	end else if (mem_config == MEM_NO_REQ) begin
 `else
 	end else begin
@@ -426,37 +426,37 @@ always_ff @(posedge clk) begin
 						end
 					end
 					
-					if (x_pos == 0) gen_mask <= 8'hFF >> SCX[2:0];
-					else if (x_pos == 160) gen_mask <= ~(8'hFF << SCX[2:0]);
-					else gen_mask <= 8'hFF;
+					// if (x_pos == 0) gen_mask <= 8'hFF >> SCX[2:0];
+					// else if (x_pos == 160) gen_mask <= ~(8'hFF << SCX[2:0]);
+					// else gen_mask <= 8'hFF;
 
-					if (w_check == W_BG_RUN) w_mask <= 8'hFF << (8 - (real_wx - x_pos - SCX));
-					if (w_check == W_MASK_RUN) w_mask <= 8'hFF >> (real_wx - x_pos - SCX);
+					// if (w_check == W_BG_RUN) w_mask <= 8'hFF << (8 - (real_wx - x_pos - SCX));
+					// if (w_check == W_MASK_RUN) w_mask <= 8'hFF >> (real_wx - x_pos - SCX);
 				end
 				BG_ROW_1_LOAD: begin
 					if (LCDC[0]) begin
-						bg_tile_row[1] <= PPU_DATA_in & gen_mask;
-						if (w_check == W_BG_RUN) bg_tile_row[1] <= PPU_DATA_in & w_mask;
-						if (w_check == W_MASK_RUN) bg_tile_row[1] <= bg_tile_row[1] | (PPU_DATA_in & w_mask);
-					end else bg_tile_row[1] <= 8'h0;
+						bg_tile_row[0] <= PPU_DATA_in; // & gen_mask;
+						// if (w_check == W_BG_RUN) bg_tile_row[0] <= PPU_DATA_in & w_mask;
+						// if (w_check == W_MASK_RUN) bg_tile_row[0] <= bg_tile_row[0] | (PPU_DATA_in & w_mask);
+					end else bg_tile_row[0] <= 8'h0;
 
 					bg_fetch_mode <= BG_ROW_2_LOAD;
 					`PPU_ADDR_INC(1);
 				end
 				BG_ROW_2_LOAD: begin
 					if (LCDC[0]) begin
-						bg_tile_row[0] <= PPU_DATA_in & gen_mask;
-						if (w_check == W_BG_RUN) bg_tile_row[0] <= PPU_DATA_in & w_mask;
-						if (w_check == W_MASK_RUN) bg_tile_row[0] <= bg_tile_row[0] | (PPU_DATA_in & w_mask);
-					end else bg_tile_row[0] <= 8'h0;
+						bg_tile_row[1] <= PPU_DATA_in; //  & gen_mask;
+						// if (w_check == W_BG_RUN) bg_tile_row[1] <= PPU_DATA_in & w_mask;
+						// if (w_check == W_MASK_RUN) bg_tile_row[1] <= bg_tile_row[1] | (PPU_DATA_in & w_mask);
+					end else bg_tile_row[1] <= 8'h0;
 
-					if (w_check == W_BG_RUN) begin
-						bg_fetch_mode <= BG_TILE_NO_STORE;
-						`PPU_ADDR_SET(w_map_sel + {x_w_off[15:3], 3'h0} + y_w_off);
-						w_check <= W_MASK_RUN;
-					end else begin
-						bg_fetch_mode <= BG_READY;
-					end
+					// if (w_check == W_BG_RUN) begin
+					// 	bg_fetch_mode <= BG_TILE_NO_STORE;
+					// 	`PPU_ADDR_SET(w_map_sel + {x_w_off[15:3], 3'h0} + y_w_off);
+					// 	w_check <= W_MASK_RUN;
+					// end else begin
+					bg_fetch_mode <= BG_READY;
+					// end
 				end
 				default: begin
 				end
@@ -539,7 +539,7 @@ always_ff @(posedge clk) begin
 			/* Pixel Mixing & Output Machine */ 
 			case (px_mix_mode)
 				MIX_LOAD: begin
-`ifndef DEBUG
+`ifndef MEM_CYCLE
 					if (!ready_load && pixels_pushed > 0) begin
 						pixels_pushed <= pixels_pushed - 1;
 					end
