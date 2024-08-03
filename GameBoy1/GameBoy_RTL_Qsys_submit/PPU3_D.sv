@@ -1,5 +1,7 @@
 // Authors: Nicolas Alarcon, Claire Cizdziel, Donovan Sproule
 
+`define MEM_CYCLE
+
 `define OAM_BASE_ADDR 16'hFE00
 `define OAM_END_ADDR 16'hFEA0
 
@@ -8,18 +10,21 @@
 
 `define BG_MAP_1_END_ADDR 16'h9BFF
 
-`define TILE_BASE 16'h8000
 `define MAX_LY 8'd155
 
 `define NO_BOOT 0
 
 `define PPU_ADDR_INC(x) `PPU_ADDR_SET(PPU_ADDR + x)
-`define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ; PPU_RD <= 1
+`ifdef MEM_CYCLE
+`define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ;
+`else
+`define PPU_ADDR_SET(x) PPU_ADDR <= x;
+`endif
 
 /* Macros that set STAT flags */
 `define PPU_MODE_SET(x) PPU_MODE <= x; FF41[1:0] <= x
-`define LY_UPDATE(x) LY <= x; FF41[2] <= (x == LYC); FF45 <= {7'b0, (x == LYC)};
-`define WXC_UPDATE(x) if (LY >= WY && ((real_wx >= SCX) && (real_wx <= (168 + SCX)))) WXC <= x;
+`define LY_UPDATE(x) LY <= x; FF41[2] <= (x == LYC); FF45 <= {7'b0, (x == LYC)}
+`define WXC_UPDATE(x) if (LY >= WY && ((real_wx >= SCX) && (real_wx <= (168 + SCX)))) WXC <= x
 
 typedef enum bit [1:0] {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_READY, BG_PAUSE} BG_DRAW_STATES_t;
@@ -93,6 +98,8 @@ logic [15:0] bg_map_sel;
 /* SP fetching vars */
 logic sp_fifo_go;
 logic sp_fifo_load;
+logic [15:0] alt_data_in_sel;
+logic [15:0] alt_tile_base;
 logic [7:0] curr_sp_flag;
 logic [7:0] sp_real_x;				// used to account for the 16 offset
 logic [3:0] sp_ind;
@@ -114,12 +121,18 @@ logic unsigned [7:0] sp_mask;
 
 /* Pixel mixing */
 logic ready_load;
+logic flush_buff;
 logic [1:0] bg_out;
 logic [1:0] sp_out;
 logic [2:0] px_mix_mode;
 
 /* Dealayed Data Input */
+`ifdef MEM_CYCLE
 logic [2:0] mem_config;
+`endif
+
+/* Frame Reset */
+logic frame_rst;
 
 /* Assigns */
 assign BIG_DATA_in = {8'b0, PPU_DATA_in};
@@ -184,18 +197,32 @@ assign WY = FF4A;
 logic [7:0] FF4B;
 assign WX = FF4B;
 
-/*
- *  Interrupt Assigns
-*/
-assign IRQ_PPU_V_BLANK = (PPU_MODE == PPU_V_BLANK);
-assign IRQ_LCDC = (STAT[2] && STAT[6]) || (STAT[3] & ~|STAT[1:0]) || (STAT[4] & ~STAT[1] & STAT[0]) || (STAT[5] & STAT[1] & ~STAT[0]);  
+
+/* STAT Interrupts */
+logic IRQ_STAT, IRQ_STAT_NEXT; // The Internal IRQ signal, IRQ LCDC Triggered on the rising edge of this
+
+always_comb begin
+	IRQ_STAT_NEXT = (FF41[6] && LY == LYC) ||
+	                (FF41[3] && PPU_MODE == PPU_H_BLANK) ||
+	                (FF41[5] && PPU_MODE == PPU_SCAN) ||
+	                ((FF41[4] || FF41[5]) && PPU_MODE == PPU_V_BLANK);
+	IRQ_STAT_NEXT = IRQ_STAT_NEXT & LCDC[7];
+end
+
+assign IRQ_LCDC = IRQ_STAT_NEXT && !IRQ_STAT;
 
 /*
  *  Pixel Assigns
 */
-assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
-assign PX_valid = ((sp_out | bg_out) != 0) && (x_pos <= 160 || (x_pos <= 168 && SCX != 0));
+assign flush_buff = (PPU_MODE == PPU_DRAW) && 
+			!(ready_load & (pixels_pushed == 4'hA)) && 
+			(pixels_pushed > 0 & pixels_pushed <= 8);
 
+assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
+assign PX_valid = (flush_buff && (x_pos <= 160 || (x_pos <= 168 && SCX != 0)));
+
+assign alt_tile_base = (LCDC[4]) ? 16'h8000 : 16'h9000;
+assign alt_data_in_sel = (LCDC[4]) ? BIG_DATA_in : S_BIG_DATA_in;
 
 /* 
  * If we detect a memory request we return back the current
@@ -222,30 +249,6 @@ begin
 	end
 end
 
-
-/*
- *
- *  Implemented
- *  Proper pixel mixing			o 
- *  Interrupts					o 
- * 	LCDC[0:3] 					o
- *  LCDC[4]						o
- * 	LCDC[5:7]					o
- *  STAT flags					o
- * 	Alternate BG Map			o
- *  Alternate indexing			o
- *  Window						o
- * 	Tall sprites				o
- *  SCX							o
- * 	SCY							o
- * 	X masking					o
- *  Y masking 					o
- * 	Memory usage				o
- *  Vblank interrupts			o
- *  Overlapping sprites			o  
- *
- */
-
 always_ff @(posedge clk) begin
 
 	/* Register Assignment
@@ -256,6 +259,7 @@ always_ff @(posedge clk) begin
 
 	if (rst)
     begin
+    	IRQ_STAT <= 0;
         FF40 <= `NO_BOOT ? 8'h91 : 0;
         FF41 <= 0;
         FF42 <= 0;
@@ -270,6 +274,7 @@ always_ff @(posedge clk) begin
     end
     else
     begin
+    	IRQ_STAT <= IRQ_STAT_NEXT;
         FF40 <= (WR && (ADDR == 16'hFF40)) ? MMIO_DATA_out : FF40;
 	    FF41 <= (WR && (ADDR == 16'hFF41)) ? {MMIO_DATA_out[7:3], FF41[2:0]} : {FF41[7:3], LYC == LY, PPU_MODE};
 	    FF42 <= (WR && (ADDR == 16'hFF42)) ? MMIO_DATA_out : FF42;
@@ -284,18 +289,25 @@ always_ff @(posedge clk) begin
     end
 
 	/* -- Memory Loading machine -- */
-	if (mem_config == MEM_LOAD) PPU_RD <= 0;
+`ifdef MEM_CYCLE
 	if (mem_config != MEM_NO_REQ) mem_config <= mem_config + 1;
+`endif
 	
+	frame_rst <= 0;
 	/* -- State Switching machine -- */
-    if (rst) begin
+    if (rst || frame_rst) begin
 			x_pos <= 0;
 			dots <= 0;
 			`LY_UPDATE(0);
 			WXC <= 0;
 			`PPU_ADDR_SET(`OAM_BASE_ADDR);
 			`PPU_MODE_SET(PPU_SCAN);
+			PPU_RD <= 1;
+`ifdef  MEM_CYCLE
 	end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
+`else
+	end else if (LCDC[7]) begin
+`endif
     	dots <= dots + 1;
 		/* -- Following block happens on a per scanline basis (456 dots per line) -- */
         case (PPU_MODE)
@@ -303,7 +315,7 @@ always_ff @(posedge clk) begin
 	    		if (dots == 79) begin
 					`PPU_MODE_SET(PPU_DRAW);
 					ready_load <= 1;
-					pixels_pushed <= 1;
+					pixels_pushed <= 4'hA;
 					x_pos <= 0;
 					
 					bg_fetch_mode <= BG_PAUSE;
@@ -311,11 +323,13 @@ always_ff @(posedge clk) begin
 		    	end
 				if (LY >= 144) begin 
 					`PPU_MODE_SET(PPU_V_BLANK);
+					PPU_RD <= 0;
 				end 
 			end
 		    PPU_DRAW: begin
 		    	if ((x_pos > 160 && SCX == 0) || x_pos > 168) begin
 		    		`PPU_MODE_SET(PPU_H_BLANK);
+		    		PPU_RD <= 0;
 		    	end
 		    end
 		    PPU_H_BLANK: begin
@@ -331,7 +345,10 @@ always_ff @(posedge clk) begin
 					sp_loaded <= 0;
 					dots <= 0;
 					`PPU_MODE_SET(PPU_SCAN);
+					PPU_RD <= 1;
 					`PPU_ADDR_SET(`OAM_BASE_ADDR);
+				end else begin
+					`PPU_ADDR_SET(0);
 				end
 			end
 		    PPU_V_BLANK: begin
@@ -339,21 +356,25 @@ always_ff @(posedge clk) begin
 					`LY_UPDATE(LY + 1);
 					`WXC_UPDATE(WXC + 1);
 					dots <= 0;
-					if (LY >= `MAX_LY) begin
-						`LY_UPDATE(0);
-						`WXC_UPDATE(0);
-						`PPU_MODE_SET(PPU_SCAN);
+					if (LY >= `MAX_LY) begin	// we are ready to render the next frame
+						frame_rst <= 1;
 					end
+				end else begin
+					`PPU_ADDR_SET(0);
 				end
 			end
         endcase
 	end
 
 	/* -- OAM Scan State Machine -- */
-	if (rst || PPU_MODE == PPU_H_BLANK) begin
+	if (rst || frame_rst || PPU_MODE == PPU_H_BLANK) begin
 		sp_loaded <= 0;
 		sp_found <= 0;
+`ifdef MEM_CYCLE
 	end else if (mem_config == MEM_NO_REQ) begin
+`else
+	end else begin
+`endif
 		if (PPU_MODE == PPU_SCAN) begin
 			if (!dots[0]) begin									// forces alternating clock dots
 				if (sp_in_range && sp_loaded < 10) begin
@@ -361,46 +382,47 @@ always_ff @(posedge clk) begin
 					sp_y_buff[sp_loaded] <= PPU_DATA_in;
 					sp_off_buff[sp_loaded] <= curr_off[7:0];
 					sp_found <= 1;
-					`PPU_ADDR_INC(1);	
-				end else if (dots != 80) begin
-					`PPU_ADDR_INC(0);							// jumps to next sprite in OAM
-				end
+				end 
+				`PPU_ADDR_INC(1);	
 			end else begin
 				if (sp_found) begin
 					sp_x_buff[sp_loaded - 1] <= PPU_DATA_in;
-					`PPU_ADDR_INC(3);							// jumps to next sprite in OAM
-				end else begin
-					`PPU_ADDR_INC(4);
-				end
+				end 
+				`PPU_ADDR_INC(3);							// jumps to next sprite in OAM
 				sp_found <= 0;
 			end
 		end
 	end
 
+`ifdef MEM_CYCLE
+	if (PPU_MODE == PPU_DRAW && px_mix_mode == MIX_LOAD)
+		if (!ready_load && pixels_pushed > 0) pixels_pushed <= pixels_pushed - 1;
+`endif
+
 	/* BG/Window Sprite Draw Machine 
 	*	State machine iterates through detected sprites for a PPU_scanline,
 	*	loads the rows into the sp_fifo and switches the bg drawing on
 	*/
-	if (rst) begin
-		pixels_pushed <= 1;
+	if (rst || frame_rst) begin
+		pixels_pushed <= 4'hA;
 		sp_ind <= 0;
 		ready_load <= 1;
+`ifdef MEM_CYCLE
 	end else if (mem_config == MEM_NO_REQ) begin
+`else
+	end else begin
+`endif
 		if (PPU_MODE == PPU_DRAW) begin
 			/* Background Fetch Machine */
 			case (bg_fetch_mode)
 				BG_TILE_NO_STORE: begin
 					bg_fetch_mode <= BG_ROW_1_LOAD;
 					
-					if (LCDC[4]) begin
-						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
-					end else begin
-						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (S_BIG_DATA_in << 4));		// 8800-indexing
-					end
+					`PPU_ADDR_SET(alt_tile_base + (BIG_LY_SCY_MOD << 1) + (alt_data_in_sel << 4));		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
 
 					if (LCDC[5]) begin
 						if (LY >= WY && (x_pos + SCX >= real_wx)) begin
-							`PPU_ADDR_SET(`TILE_BASE + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
+							`PPU_ADDR_SET(alt_tile_base + ({13'h0, WXC[2:0]} << 1) + (alt_data_in_sel << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
 						end
 					end
 					
@@ -476,7 +498,7 @@ always_ff @(posedge clk) begin
 				end
 				SP_TILE_LOAD: begin
 					sp_mask <= sp_mask & gen_mask;
-					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + ({BIG_DATA_in[15:1], tts} << 4));
+					`PPU_ADDR_SET(16'h8000 + (BIG_LY_SCY_MOD << 1) + ({BIG_DATA_in[15:1], tts} << 4));
 					sp_fetch_mode <= SP_ROW_1_LOAD;
 				end
 				SP_ROW_1_LOAD: begin
@@ -517,11 +539,13 @@ always_ff @(posedge clk) begin
 			/* Pixel Mixing & Output Machine */ 
 			case (px_mix_mode)
 				MIX_LOAD: begin
-					if (!ready_load) begin
+`ifndef MEM_CYCLE
+					if (!ready_load && pixels_pushed > 0) begin
 						pixels_pushed <= pixels_pushed - 1;
 					end
+`endif					
 
-					if (pixels_pushed == 1) begin
+					if (pixels_pushed == 4'hA) begin
 						if ((sp_fetch_mode == SP_READY) && (bg_fetch_mode == BG_READY)) begin
 							// load both buffers into fifos
 							bg_fifo_load <= 1;
@@ -538,7 +562,7 @@ always_ff @(posedge clk) begin
 					end
 
 					if (pixels_pushed == 0) begin
-						pixels_pushed <= 1;
+						pixels_pushed <= 4'hA;
 						ready_load <= 1;
 					end
 				end
@@ -550,7 +574,7 @@ always_ff @(posedge clk) begin
 					sp_fifo_go <= 1;
 
 
-					pixels_pushed <= 8; 
+					pixels_pushed <= 8;
 					ready_load <= 0;
  
 					bg_fetch_mode <= BG_PAUSE;
