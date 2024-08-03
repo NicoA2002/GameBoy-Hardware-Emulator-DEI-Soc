@@ -162,6 +162,9 @@ int main(int argc, char *argv[])
         exit(1);
     }
     
+    volatile uint8_t *windowy_ptr = (h2f_virtual_base) + 0xFF4A;
+    volatile uint8_t *windowx_ptr =  (h2f_virtual_base) + 0xFF4B;
+    volatile uint8_t *joypad_ptr = (h2f_virtual_base) + 0xFF00;
 
     /* Handle NES Controller Inputs by sending only new values */
     printf("READY!");
@@ -195,7 +198,12 @@ int main(int argc, char *argv[])
 		} else if (transferred > 0){    
             pressed = 0x00;        
 		}
-        if (last_pressed != pressed) send_joypad_status(pressed);
+        if (last_pressed != pressed) { 
+            send_joypad_status(pressed);
+            printf("Indexed Joypad register is: %.2X \n", *joypad_ptr);
+            printf("Indexed WindowX register is: %.2X \n", *windowx_ptr);
+            printf("Indexed WindowY register is: %.2X \n", *windowy_ptr);
+        }
         last_pressed = pressed;
     }
 
