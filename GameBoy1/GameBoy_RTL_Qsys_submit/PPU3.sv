@@ -24,7 +24,7 @@
 /* Macros that set STAT flags */
 `define PPU_MODE_SET(x) PPU_MODE <= x; FF41[1:0] <= x
 `define LY_UPDATE(x) LY <= x; FF41[2] <= (x == LYC); FF45 <= {7'b0, (x == LYC)}
-`define WXC_UPDATE(x) if (LY >= WY && ((real_wx >= SCX) && (real_wx <= (168 + SCX)))) WXC <= x
+`define WXC_UPDATE(x) if (LY >= WY && ((real_wx >= SCX) && (real_wx <= (168 + SCX))) && LCDC[5]) WXC <= x
 
 typedef enum bit [1:0] {PPU_H_BLANK, PPU_V_BLANK, PPU_SCAN, PPU_DRAW} PPU_STATES_t;
 typedef enum bit [2:0] {BG_TILE_NO_STORE, BG_ROW_1_LOAD, BG_ROW_2_LOAD, BG_READY, BG_PAUSE} BG_DRAW_STATES_t;
