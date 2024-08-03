@@ -1,6 +1,6 @@
 // Authors: Nicolas Alarcon, Claire Cizdziel, Donovan Sproule
 
-`define DEBUG
+// `define DEBUG
 
 `define OAM_BASE_ADDR 16'hFE00
 `define OAM_END_ADDR 16'hFEA0
@@ -10,7 +10,6 @@
 
 `define BG_MAP_1_END_ADDR 16'h9BFF
 
-`define TILE_BASE 16'h8000
 `define MAX_LY 8'd155
 
 `define NO_BOOT 0
@@ -19,7 +18,7 @@
 `ifdef DEBUG
 `define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ;
 `else
-`define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ;
+`define PPU_ADDR_SET(x) PPU_ADDR <= x;
 `endif
 
 /* Macros that set STAT flags */
@@ -99,6 +98,8 @@ logic [15:0] bg_map_sel;
 /* SP fetching vars */
 logic sp_fifo_go;
 logic sp_fifo_load;
+logic [15:0] alt_data_in_sel;
+logic [15:0] alt_tile_base;
 logic [7:0] curr_sp_flag;
 logic [7:0] sp_real_x;				// used to account for the 16 offset
 logic [3:0] sp_ind;
@@ -120,6 +121,7 @@ logic unsigned [7:0] sp_mask;
 
 /* Pixel mixing */
 logic ready_load;
+logic flush_buff;
 logic [1:0] bg_out;
 logic [1:0] sp_out;
 logic [2:0] px_mix_mode;
@@ -212,13 +214,16 @@ assign IRQ_LCDC = IRQ_STAT_NEXT && !IRQ_STAT;
 /*
  *  Pixel Assigns
 */
-logic flush_buff;
 assign flush_buff = (PPU_MODE == PPU_DRAW) && 
 			!(ready_load & (pixels_pushed == 4'hA)) && 
 			(pixels_pushed > 0 & pixels_pushed <= 8);
 
 assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
 assign PX_valid = (flush_buff && (x_pos <= 160 || (x_pos <= 168 && SCX != 0)));
+
+assign alt_tile_base = (LCDC[4]) ? 16'h8000 : 16'h9000;
+assign alt_data_in_sel = (LCDC[4]) ? BIG_DATA_in : S_BIG_DATA_in;
+
 /* 
  * If we detect a memory request we return back the current
  * state of the register
@@ -391,7 +396,7 @@ always_ff @(posedge clk) begin
 
 `ifdef DEBUG
 	if (PPU_MODE == PPU_DRAW && px_mix_mode == MIX_LOAD)
-		if (!ready_load) pixels_pushed <= pixels_pushed - 1;
+		if (!ready_load && pixels_pushed > 0) pixels_pushed <= pixels_pushed - 1;
 `endif
 
 	/* BG/Window Sprite Draw Machine 
@@ -413,21 +418,11 @@ always_ff @(posedge clk) begin
 				BG_TILE_NO_STORE: begin
 					bg_fetch_mode <= BG_ROW_1_LOAD;
 					
-					if (LCDC[4]) begin
-						`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + (BIG_DATA_in << 4));		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
-					end else begin
-						`PPU_ADDR_SET(16'h9000 + (BIG_LY_SCY_MOD << 1) + (S_BIG_DATA_in << 4));		// 8800-indexing
-					end
+					`PPU_ADDR_SET(alt_tile_base + (BIG_LY_SCY_MOD << 1) + (alt_data_in_sel << 4));		// tile_base + 2 * (LY + SCY % 8) + (16 * tile_no) 
 
 					if (LCDC[5]) begin
-						if (LCDC[4]) begin
-							if (LY >= WY && (x_pos + SCX >= real_wx)) begin
-								`PPU_ADDR_SET(`TILE_BASE + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
-							end
-						end else begin
-							if (LY >= WY && (x_pos + SCX >= real_wx)) begin
-								`PPU_ADDR_SET(16'h9000 + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
-							end
+						if (LY >= WY && (x_pos + SCX >= real_wx)) begin
+							`PPU_ADDR_SET(alt_tile_base + ({13'h0, WXC[2:0]} << 1) + (alt_data_in_sel << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
 						end
 					end
 					
@@ -503,7 +498,7 @@ always_ff @(posedge clk) begin
 				end
 				SP_TILE_LOAD: begin
 					sp_mask <= sp_mask & gen_mask;
-					`PPU_ADDR_SET(`TILE_BASE + (BIG_LY_SCY_MOD << 1) + ({BIG_DATA_in[15:1], tts} << 4));
+					`PPU_ADDR_SET(16'h8000 + (BIG_LY_SCY_MOD << 1) + ({BIG_DATA_in[15:1], tts} << 4));
 					sp_fetch_mode <= SP_ROW_1_LOAD;
 				end
 				SP_ROW_1_LOAD: begin
@@ -545,7 +540,7 @@ always_ff @(posedge clk) begin
 			case (px_mix_mode)
 				MIX_LOAD: begin
 `ifndef DEBUG
-					if (!ready_load) begin
+					if (!ready_load && pixels_pushed > 0) begin
 						pixels_pushed <= pixels_pushed - 1;
 					end
 `endif					
