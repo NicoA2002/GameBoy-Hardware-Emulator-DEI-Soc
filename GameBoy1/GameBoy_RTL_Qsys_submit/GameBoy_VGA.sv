@@ -142,25 +142,25 @@ begin
 		begin
 			unique case (GB_PIXEL)
 				2'b11:
-				begin
+				begin //dark blue
 				    VGA_R = 51;
 				    VGA_G = 44;
 				    VGA_B = 80;
 				end
 				2'b10:
-				begin
+				begin //blue-green
 				    VGA_R = 70;
 				    VGA_G = 135;
 				    VGA_B = 143;
 				end
 				2'b01:
-				begin
+				begin //neon green
 				    VGA_R = 148;
 				    VGA_G = 227;
 				    VGA_B = 68;
 				end
 				2'b00:
-				begin
+				begin //lightest
 				    VGA_R = 226;
 				    VGA_G = 243;
 				    VGA_B = 228;
