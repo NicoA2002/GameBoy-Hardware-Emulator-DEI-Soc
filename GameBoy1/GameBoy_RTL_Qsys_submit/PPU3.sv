@@ -1,5 +1,7 @@
 // Authors: Nicolas Alarcon, Claire Cizdziel, Donovan Sproule
 
+`define DEBUG
+
 `define OAM_BASE_ADDR 16'hFE00
 `define OAM_END_ADDR 16'hFEA0
 
@@ -14,7 +16,11 @@
 `define NO_BOOT 0
 
 `define PPU_ADDR_INC(x) `PPU_ADDR_SET(PPU_ADDR + x)
-`define PPU_ADDR_SET(x) PPU_ADDR <= x; // mem_config <= MEM_REQ;
+`ifdef DEBUG
+`define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ;
+`else
+`define PPU_ADDR_SET(x) PPU_ADDR <= x; mem_config <= MEM_REQ;
+`endif
 
 /* Macros that set STAT flags */
 `define PPU_MODE_SET(x) PPU_MODE <= x; FF41[1:0] <= x
@@ -119,7 +125,9 @@ logic [1:0] sp_out;
 logic [2:0] px_mix_mode;
 
 /* Dealayed Data Input */
-// logic [2:0] mem_config;
+`ifdef DEBUG
+logic [2:0] mem_config;
+`endif
 
 /* Frame Reset */
 logic frame_rst;
@@ -205,7 +213,9 @@ assign IRQ_LCDC = IRQ_STAT_NEXT && !IRQ_STAT;
  *  Pixel Assigns
 */
 logic flush_buff;
-assign flush_buff = (PPU_MODE == PPU_DRAW) && !(ready_load & (pixels_pushed == 1)) && (pixels_pushed > 0);
+assign flush_buff = (PPU_MODE == PPU_DRAW) && 
+			!(ready_load & (pixels_pushed == 4'hA)) && 
+			(pixels_pushed > 0 & pixels_pushed <= 8);
 
 assign PX_OUT = (sp_out == 2'h0 || (bg_out != 2'h0 && curr_sp_flag[7])) ? bg_out : sp_out;
 assign PX_valid = (flush_buff && (x_pos <= 160 || (x_pos <= 168 && SCX != 0)));
@@ -274,8 +284,9 @@ always_ff @(posedge clk) begin
     end
 
 	/* -- Memory Loading machine -- */
-	// if (mem_config == MEM_LOAD) PPU_RD <= 0;
-	// if (mem_config != MEM_NO_REQ) mem_config <= mem_config + 1;
+`ifdef DEBUG
+	if (mem_config != MEM_NO_REQ) mem_config <= mem_config + 1;
+`endif
 	
 	frame_rst <= 0;
 	/* -- State Switching machine -- */
@@ -287,8 +298,11 @@ always_ff @(posedge clk) begin
 			`PPU_ADDR_SET(`OAM_BASE_ADDR);
 			`PPU_MODE_SET(PPU_SCAN);
 			PPU_RD <= 1;
-	//end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
+`ifdef  DEBUG
+	end else if (LCDC[7] && mem_config == MEM_NO_REQ) begin
+`else
 	end else if (LCDC[7]) begin
+`endif
     	dots <= dots + 1;
 		/* -- Following block happens on a per scanline basis (456 dots per line) -- */
         case (PPU_MODE)
@@ -296,7 +310,7 @@ always_ff @(posedge clk) begin
 	    		if (dots == 79) begin
 					`PPU_MODE_SET(PPU_DRAW);
 					ready_load <= 1;
-					pixels_pushed <= 1;
+					pixels_pushed <= 4'hA;
 					x_pos <= 0;
 					
 					bg_fetch_mode <= BG_PAUSE;
@@ -351,8 +365,11 @@ always_ff @(posedge clk) begin
 	if (rst || frame_rst || PPU_MODE == PPU_H_BLANK) begin
 		sp_loaded <= 0;
 		sp_found <= 0;
-	// end else if (mem_config == MEM_NO_REQ) begin
+`ifdef DEBUG
+	end else if (mem_config == MEM_NO_REQ) begin
+`else
 	end else begin
+`endif
 		if (PPU_MODE == PPU_SCAN) begin
 			if (!dots[0]) begin									// forces alternating clock dots
 				if (sp_in_range && sp_loaded < 10) begin
@@ -372,16 +389,24 @@ always_ff @(posedge clk) begin
 		end
 	end
 
+`ifdef DEBUG
+	if (PPU_MODE == PPU_DRAW && px_mix_mode == MIX_LOAD)
+		if (!ready_load) pixels_pushed <= pixels_pushed - 1;
+`endif
+
 	/* BG/Window Sprite Draw Machine 
 	*	State machine iterates through detected sprites for a PPU_scanline,
 	*	loads the rows into the sp_fifo and switches the bg drawing on
 	*/
 	if (rst || frame_rst) begin
-		pixels_pushed <= 1;
+		pixels_pushed <= 4'hA;
 		sp_ind <= 0;
 		ready_load <= 1;
-	// end else if (mem_config == MEM_NO_REQ) begin
+`ifdef DEBUG
+	end else if (mem_config == MEM_NO_REQ) begin
+`else
 	end else begin
+`endif
 		if (PPU_MODE == PPU_DRAW) begin
 			/* Background Fetch Machine */
 			case (bg_fetch_mode)
@@ -401,7 +426,7 @@ always_ff @(posedge clk) begin
 							end
 						end else begin
 							if (LY >= WY && (x_pos + SCX >= real_wx)) begin
-								`PPU_ADDR_SET(16'h9000 + ({13'h0, WXC[2:0]} << 1) + (S_BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
+								`PPU_ADDR_SET(16'h9000 + ({13'h0, WXC[2:0]} << 1) + (BIG_DATA_in << 4));		// tile_base + (16 * tile_no) + 2 * (LY + SCY % 8)
 							end
 						end
 					end
@@ -519,11 +544,13 @@ always_ff @(posedge clk) begin
 			/* Pixel Mixing & Output Machine */ 
 			case (px_mix_mode)
 				MIX_LOAD: begin
+`ifndef DEBUG
 					if (!ready_load) begin
 						pixels_pushed <= pixels_pushed - 1;
 					end
+`endif					
 
-					if (pixels_pushed == 1) begin
+					if (pixels_pushed == 4'hA) begin
 						if ((sp_fetch_mode == SP_READY) && (bg_fetch_mode == BG_READY)) begin
 							// load both buffers into fifos
 							bg_fifo_load <= 1;
@@ -540,7 +567,7 @@ always_ff @(posedge clk) begin
 					end
 
 					if (pixels_pushed == 0) begin
-						pixels_pushed <= 1;
+						pixels_pushed <= 4'hA;
 						ready_load <= 1;
 					end
 				end
@@ -552,7 +579,7 @@ always_ff @(posedge clk) begin
 					sp_fifo_go <= 1;
 
 
-					pixels_pushed <= 8; 
+					pixels_pushed <= 8;
 					ready_load <= 0;
  
 					bg_fetch_mode <= BG_PAUSE;
