@@ -11,24 +11,24 @@ else
         PWD := $(shell pwd)
 
 CFLAGS = -Wall
+CC = gcc
+OBJECTS = start.o controller.o
 
-OBJECTS = main.o usbkeyboard.o
+default: module start
 
-default: module main
-
-user: $(OBJECTS)
-	cc $(CFLAGS) -o main $(OBJECTS) -lusb-1.0 
+start: $(OBJECTS)
+	$(CC) $(CFLAGS) -o start $(OBJECTS) -lusb-1.0 
 
 module:
 	${MAKE} -C ${KERNEL_SOURCE} SUBDIRS=${PWD} modules
 
 clean:
 	${MAKE} -C ${KERNEL_SOURCE} SUBDIRS=${PWD} clean
-	${RM} main
-	rm -rf *.o main 
+	${RM} start
+	rm -rf *.o start
 
-TARFILES = Makefile README usb_HID_keys.h usbkeyboard.c usbkeyboard.h game_boy.h game_boy.c main.c
-TARFILE = project.tar.gz
+TARFILES = Makefile README controller.c controller.h game_boy.h game_boy.c start.c
+TARFILE = final-sw.tar.gz
 .PHONY : tar
 tar : $(TARFILE)
 

@@ -3,47 +3,43 @@
  *
  * Original By Stephen A. Edwards
  * Columbia University
- * Modified By Nicolas Alarcon, Donovan Sproule, Claire Cizdziel
+ * Modified By Nicolas Alarcon
  * Columbia University
- * 640 x 480 @ 60 Hz: 25MHz
- *
- * New Resolution: 480x432: modify timing, framebuffer size, pixel scaling
+ * 1280 x 1024 @ 60 Hz
  */
 
 module GameBoy_VGA
 (
-	input		logic				clk,
-	input logic GameBoy_clk, // the 2^22 Hz GameBoy clk for framebuffer
-	input		logic				reset,
+	input logic			clk, //only used for resetting background 67.1 MHz
+	input logic GameBoy_clk, // the 2^22 Hz GameBoy clk for framebuffer, from Cartridge
+	input logic			reset, //only used for resetting background
 	input logic GameBoy_reset, // Reset synced to GameBoy clk
 	
-	input logic clk_vga, // 25 MHz
+	input logic clk_vga, // 108 MHz
 	
-	/* Avalon Slave */
-	input logic [7:0]  writedata,
-	input logic 	   write,
-    input 		   chipselect,
+	/* Avalon Slave from lab3*/
+	input logic [7:0]   writedata,
+	input logic 	    write,
+    input 		        chipselect,
     input logic [20:0]  address,
 
 	/* VGA Conduit */
-	output 	logic [7:0] 	VGA_R, VGA_G, VGA_B,
-	output 	logic 	   	VGA_CLK, VGA_HS, VGA_VS,
-									VGA_BLANK_n,
-	output 	logic 	   	VGA_SYNC_n,
+	output logic [7:0] 	VGA_R, VGA_G, VGA_B,
+	output logic 	   	VGA_CLK, VGA_HS, VGA_VS,
+						VGA_BLANK_n,
+	output logic 	   	VGA_SYNC_n,
 
 	/* GameBoy Pixel Conduit */
 	input logic [1:0] LD,
-	input logic PX_VALID
-	
-);
+	input logic       PX_VALID);
 
 // VGA signals
-logic [15:0] LX; //LX
-logic [15:0] LY; //LY
+logic [15:0] LX;
+logic [15:0] LY;
 
-logic [7:0]		bg_r, bg_g, bg_b;
+logic [7:0]	bg_r, bg_g, bg_b;
 
-logic [1:0] 	GB_PIXEL;
+logic [1:0] GB_PIXEL;
 
 // Instantiations
 vga_counters counters(.*);
@@ -52,66 +48,71 @@ vga_counters counters(.*);
 logic [14:0] frame_buffer_cnt;
 logic frame_buffer_switch;
 
-always_ff @(posedge GameBoy_clk or posedge GameBoy_reset) begin
+always_ff @(posedge GameBoy_clk or posedge GameBoy_reset)
+begin
     if (GameBoy_reset) begin
         frame_buffer_cnt <= 0;
         frame_buffer_switch <= 0;
-    end else if (PX_VALID) begin
-		//size of frame buffer: (480*432)/3 = 207360
-        if (frame_buffer_cnt == (207359)) begin
-            frame_buffer_cnt <= 0;
-		end else begin frame_buffer_cnt <= frame_buffer_cnt + 1; //move through buffer
-		end
-    end
+    end else if (PX_VALID) frame_buffer_cnt <= (frame_buffer_cnt == 23039) ? 0: frame_buffer_cnt + 1;
 end
 
-logic [15:0] READ_LX, READ_LY;
-
-assign READ_LX = LX > 80 ? LX - 80 : 0;
-assign READ_LY = LY > 24 ? LY - 24 : 0;
-
-logic [7:0] GB_LX, GB_LY;
+// 
+logic [7:0] GB_LX, GB_LY; //frame buffer addressing
 logic [2:0] GB_COL_CNT, GB_ROW_CNT;
 
-parameter LINE_SCALE = 3; //repeat each pixel 3 times 
+/* Output Scaling Machine */
 always_ff @(posedge clk_vga)
 begin
-	if (LX < 80 || LX >= 560) //outside screen x
-	begin
+	//in X window and read from same address
+	if (LX < 160 || LX >= 1120) begin
 		GB_LX <= 0;
 		GB_COL_CNT <= 0;
-	end
-	else begin
-		GB_COL_CNT <= GB_COL_CNT + 1; 
+	end else begin
+		GB_COL_CNT <= GB_COL_CNT + 1;
 	end
 
-	if (GB_COL_CNT == LINE_SCALE) 
+	// increment X framebuffer address
+	if (GB_COL_CNT == 5)
 	begin
-		GB_COL_CNT <= 0; 
-		GB_LX <= GB_LX + 1; 
+		GB_COL_CNT <= 0;
+		GB_LX <= GB_LX + 1;
 	end
 	
-    if (LY <= 24 || LY >= 456) //outside screen y
-    begin
-        GB_LY <= 0;
-        GB_ROW_CNT <= 0;
-    end 
-	else if (LX == 1) begin 
-        GB_ROW_CNT <= GB_ROW_CNT + 1;
-    end
-    
-    if (GB_ROW_CNT == LINE_SCALE) begin 
-        GB_ROW_CNT <= 0;
-        GB_LY <= GB_LY + 1;
-    end
+	//in Y window and read from same address
+	if (LY <= 80 || LY >= 944) begin
+		GB_LY <= 0;
+		GB_ROW_CNT <= 0;
+	end else if (LX == 1) begin
+		GB_ROW_CNT <= GB_ROW_CNT + 1;
+	end
+	
+	//increment framebuffer Y address
+	if (GB_ROW_CNT == 6)
+	begin
+		GB_ROW_CNT <= 0;
+		GB_LY <= GB_LY + 1;
+	end
 end
 	
+/*
+Runs at GameBoy clock Speed and read out at VGA clock speed
 
-Quartus_dual_port_dual_clk_ram_23040 LCD_FRAME_BUFFER0(
-	.write_clk(~GameBoy_clk),
-	.read_clk(~clk_vga), .data(LD),
-	.we(PX_VALID), .write_addr(frame_buffer_cnt),
-	.read_addr({7'b0, GB_LX} + {2'b0, GB_LY, 5'b0} + {GB_LY, 7'b0}),
+2^22 Hz/(108MHz) = 606.815... 
+
+But does not produce a noticeable jitter, 2^22 used to produce an accurate in game clock
+
+GB_LX runs from 0-159
+GB_LY runs from 0-143
+
+Indexing finds pixel at spot
+*/
+Quartus_dual_port_dual_clk_ram LCD_FRAME_BUFFER0(
+	.write_clk(~GameBoy_clk), 
+	.read_clk(~clk_vga), 
+	.data(LD), 
+	.we(PX_VALID), 
+	.write_addr(frame_buffer_cnt), 
+	.read_addr({7'b0, GB_LX} + {2'b0, GB_LY, 5'b0} + {GB_LY, 7'b0}), 
 	.q(GB_PIXEL)
 );
 
@@ -119,10 +120,10 @@ Quartus_dual_port_dual_clk_ram_23040 LCD_FRAME_BUFFER0(
 always_ff @(posedge clk)
 begin
 	if (reset) 
-	begin
-		bg_r <= 8'd192;
-		bg_g <= 8'd156;
-		bg_b <= 8'd14;
+	begin //pantone 292!
+		bg_r <= 8'd105;
+		bg_g <= 8'd179;
+		bg_b <= 8'd231;
 	end 
 	else if (chipselect && write)
 	begin
@@ -130,40 +131,42 @@ begin
 	end
 end
 
+// Kirokaze GB Color Palette, tried to match blue but was ugly
+// GBPixel -> RGB Decoder
 always_comb 
 begin
    {VGA_R, VGA_G, VGA_B} = {8'h00, 8'h00, 8'h00};
    if (VGA_BLANK_n)
    begin
-		if (LX >= 80 && LX <= 560 && LY >= 24 && LY <= 456)
+		if (LX >= 160 && LX <= 1120 && LY >= 80 && LY <= 944) //within screen window
 		begin
 			unique case (GB_PIXEL)
 				2'b11:
-				begin
+				begin //dark blue
 				    VGA_R = 51;
 				    VGA_G = 44;
 				    VGA_B = 80;
 				end
 				2'b10:
-				begin
+				begin //blue-green
 				    VGA_R = 70;
 				    VGA_G = 135;
 				    VGA_B = 143;
 				end
 				2'b01:
-				begin
+				begin //neon green
 				    VGA_R = 148;
 				    VGA_G = 227;
 				    VGA_B = 68;
 				end
 				2'b00:
-				begin
+				begin //lightest
 				    VGA_R = 226;
 				    VGA_G = 243;
 				    VGA_B = 228;
 				end
 			endcase
-			// Retro
+			// Lines Between Pixels
 			if (GB_ROW_CNT == 0 || GB_COL_CNT == 0)
 			begin
 				VGA_R = 51;
@@ -177,72 +180,72 @@ end
 
 endmodule
 
-//VGA Clock Settings
 module vga_counters
 (
 	input 	logic				clk_vga, reset,
-    output 	logic [15:0]  		LX, // LX[15:0] is pixel column
-	output 	logic [15:0]  		LY, // LY[9:0] is pixel row
+    output 	logic [15:0]  		LX,
+	output 	logic [15:0]  		LY,
 	output 	logic				VGA_CLK, VGA_HS, VGA_VS, VGA_BLANK_n, VGA_SYNC_n
 );
-//logic [15:0] LX, LY, hcount_next, vcount_next;
+
+logic [15:0] hcount, vcount;
 	/*
-	* 640 X 480 VGA timing for a 50 MHz clock: one pixel every other cycle
-	* 
-	* LX 1599 0             1279       1599 0
+	* 1280 X 1024 VGA timing for a 108 MHz clock: one pixel every cycle, from tinyvga.com
+	*
+	* HCOUNT 1687 0             1279       1687 0
 	*             _______________              ________
 	* ___________|    Video      |____________|  Video
-	* 
-	* 
-	* |SYNC| BP |<-- HACTIVE -->|FP|SYNC| BP |<-- HACTIVE
+	*
+	*
+	* |SYNC| BP |<-- HACTIVE -->|FP|HACTIVESYNC| BP |<-- HACTIVE
 	*       _______________________      _____________
 	* |____|       VGA_HS          |____|
 	*/
-	// Parameters for LX
-	parameter HACTIVE      = 11'd 1280,
-				HFRONT_PORCH = 11'd 32,
-				HSYNC        = 11'd 192,
-				HBACK_PORCH  = 11'd 96,   
-				HTOTAL       = HACTIVE + HFRONT_PORCH + HSYNC +
-								HBACK_PORCH; // 1600
-	
-	// Parameters for LY
-	parameter VACTIVE      = 10'd 480,
-				VFRONT_PORCH = 10'd 10,
-				VSYNC        = 10'd 2,
-				VBACK_PORCH  = 10'd 33,
-				VTOTAL       = VACTIVE + VFRONT_PORCH + VSYNC +
-								VBACK_PORCH; // 525
-	
-	logic endOfLine;
-   
-	always_ff @(posedge clk_vga or posedge reset)
-		if (reset)          LX <= 0;
-		else if (endOfLine) LX <= 0;
-		else  	         LX <= LX + 11'd 1;
+	// Parameters for hcount
+	parameter 		HACTIVE      = 1280,
+					HFRONT_PORCH = 48,
+					HSYNC        = 112,
+					HBACK_PORCH  = 248,
+					HTOTAL       = HACTIVE + HFRONT_PORCH + HSYNC + HBACK_PORCH;	// 1688
 
-	assign endOfLine = LX == HTOTAL - 1;
-		
+	// Parameters for vcount
+	parameter		VACTIVE      = 1024,
+					VFRONT_PORCH = 1,
+					VSYNC        = 3,
+					VBACK_PORCH  = 38,
+					VTOTAL       = VACTIVE + VFRONT_PORCH + VSYNC + VBACK_PORCH;	// 1066
+
+	logic endOfLine;
 	logic endOfField;
 	
 	always_ff @(posedge clk_vga or posedge reset)
-		if (reset)          LY <= 0;
+		if (reset)          hcount <= 0;
+		else if (endOfLine) hcount <= 0;
+		else  	         hcount <= hcount + 1;
+
+	always_ff @(posedge clk_vga or posedge reset)
+		if (reset)          vcount <= 0;
 		else if (endOfLine)
-		if (endOfField)   LY <= 0;
-		else              LY <= LY + 10'd 1;
+			if (endOfField)   vcount <= 0;
+			else              vcount <= vcount + 1;
+	
+	assign endOfField = vcount == VTOTAL - 1;
+	assign endOfLine  = hcount == HTOTAL - 1;
 
-	assign endOfField = LY == VTOTAL - 1;
+	// Horizontal and Vertical Sync -> From Graph
+	assign VGA_HS = !((hcount >= HACTIVE + HFRONT_PORCH) && (hcount < HACTIVE + HFRONT_PORCH + HSYNC));
+	assign VGA_VS = !((vcount >= VACTIVE + VFRONT_PORCH) && (vcount < VACTIVE + VFRONT_PORCH + VSYNC));
 
-	assign VGA_HS = !( (LX[10:8] == 3'b101) &
-				!(LX[7:5] == 3'b111));
-	assign VGA_VS = !( LY[9:1] == (VACTIVE + VFRONT_PORCH) / 2);
+	assign VGA_SYNC_n = 1'b0;	// For putting sync on the green signal; unused
+	
+	// Horizontal Active and Vertical Active
+	assign VGA_BLANK_n = (hcount < HACTIVE)  && (vcount < VACTIVE);
 
-	assign VGA_SYNC_n = 1'b0; 
-
-	assign VGA_BLANK_n = !( LX[10] & (LX[9] | LX[8]) ) &
-				!( LY[9] | (LY[8:5] == 4'b1111) );
-
-	assign VGA_CLK = clk_vga; // should be 25 MHz clock
+	assign VGA_CLK = clk_vga;	// 108 MHz clock: rising edge sensitive
+	
+	//assign module outputs
+	assign LX = hcount;
+	assign LY = vcount;
 
 endmodule
 

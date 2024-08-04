@@ -135,4 +135,6 @@ set_interface_assignment avalon_slave embeddedsw.configuration.isFlash 0
 set_interface_assignment avalon_slave embeddedsw.configuration.isMemoryDevice 0
 set_interface_assignment avalon_slave embeddedsw.configuration.isNonVolatileStorage 0
 set_interface_assignment avalon_slave embeddedsw.configuration.isPrintableDevice 0
-
+set_module_assignment embeddedsw.dts.vendor "csee4840"
+set_module_assignment embeddedsw.dts.name "joypad"
+set_module_assignment embeddedsw.dts.group "game_boy"

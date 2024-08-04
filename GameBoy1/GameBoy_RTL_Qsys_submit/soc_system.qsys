@@ -341,7 +341,7 @@
  <parameter name="hideFromIPCatalog" value="false" />
  <parameter name="lockedInterfaceDefinition" value="" />
  <parameter name="maxAdditionalLatency" value="1" />
- <parameter name="projectName" value="" />
+ <parameter name="projectName" value="soc_system.qpf" />
  <parameter name="sopcBorderPoints" value="false" />
  <parameter name="systemHash" value="0" />
  <parameter name="testBenchDutName" value="" />
@@ -354,11 +354,7 @@
    type="conduit"
    dir="end" />
  <interface name="clk" internal="Main_PLL.refclk" type="clock" dir="end" />
- <interface
-   name="gameboy_gameboy_audio"
-   internal="GameBoy.GameBoy_Audio"
-   type="conduit"
-   dir="end" />
+ <interface name="gameboy_reset" internal="GameBoy.reset" type="reset" dir="end" />
  <interface name="hps" internal="hps_0.hps_io" type="conduit" dir="end" />
  <interface name="hps_ddr3" internal="hps_0.memory" type="conduit" dir="end" />
  <interface
@@ -782,7 +778,7 @@
   <parameter name="H2F_AXI_CLOCK_FREQ" value="67108863" />
   <parameter name="H2F_CTI_CLOCK_FREQ" value="100" />
   <parameter name="H2F_DEBUG_APB_CLOCK_FREQ" value="100" />
-  <parameter name="H2F_LW_AXI_CLOCK_FREQ" value="67108863" />
+  <parameter name="H2F_LW_AXI_CLOCK_FREQ" value="12254661" />
   <parameter name="H2F_TPIU_CLOCK_IN_FREQ" value="100" />
   <parameter name="HARD_EMIF" value="true" />
   <parameter name="HCX_COMPAT_MODE" value="false" />
@@ -1288,11 +1284,6 @@
  <connection
    kind="clock"
    version="21.1"
-   start="Main_PLL.outclk1"
-   end="hps_0.h2f_lw_axi_clock" />
- <connection
-   kind="clock"
-   version="21.1"
    start="Main_PLL.outclk2"
    end="AV_Config.clk" />
  <connection
@@ -1300,6 +1291,11 @@
    version="21.1"
    start="Main_PLL.outclk2"
    end="GameBoy_VGA.clock_vga" />
+ <connection
+   kind="clock"
+   version="21.1"
+   start="Main_PLL.outclk4"
+   end="hps_0.h2f_lw_axi_clock" />
  <connection
    kind="conduit"
    version="21.1"
@@ -1378,11 +1374,6 @@
    version="21.1"
    start="GameBoy_Cartridge.reset_gameboy"
    end="GameBoy_Reset.in_reset" />
- <connection
-   kind="reset"
-   version="21.1"
-   start="GameBoy_Cartridge.reset_gameboy"
-   end="GameBoy.reset" />
  <interconnectRequirement for="$system" name="qsys_mm.clockCrossingAdapter" value="HANDSHAKE" />
  <interconnectRequirement for="$system" name="qsys_mm.enableEccProtection" value="FALSE" />
  <interconnectRequirement for="$system" name="qsys_mm.insertDefaultSlave" value="FALSE" />
